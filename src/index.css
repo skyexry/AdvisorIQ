@@ -1,0 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #003087;
+  --color-gold: #C9A84C;
+  --color-bg: #F8F9FB;
+  --color-border: #E1E6ED;
+}

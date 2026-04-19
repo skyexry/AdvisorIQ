@@ -1,0 +1,6 @@
+{
+  "name": "AdvisorIQ",
+  "description": "Internal RAG assistant for LPL Financial advisors with compliance flagging and document parsing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
