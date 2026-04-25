@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { FileText, Shield, TrendingUp, Info, Plus, MessageSquare } from 'lucide-react';
+import { FileText, Shield, TrendingUp, Info, Plus, MessageSquare, Trash2, X, Users, ChevronRight } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
 
 // === CONFIG ===
@@ -10,33 +10,105 @@ const CONFIG = {
     { id: 'research', name: 'LPL Research Report', icon: Info },
     { id: 'compliance', name: 'Compliance / Regulatory Document', icon: Shield }
   ],
-  systemPromptBase: "You are AdvisorIQ, an AI assistant for LPL Financial advisors. Answer questions using only the provided documents and data sources. Always cite which document your answer comes from. If the query involves investment recommendations, suitability, or tax advice, append a compliance flag noting relevant FINRA or SEC considerations. Never fabricate information not present in the provided context. IMPORTANT: You must return the response as a JSON object with EXACTLY the following format, and do not wrap it in markdown block quotes. Format: { \"answer\": \"string containing your response in plain advisor-friendly language\", \"sources\": [\"string\", \"string\"], \"complianceFlags\": [\"string\", \"string\"], \"dataSourcesUsed\": [\"string\"], \"suggestedQuestions\": [\"string\", \"string\", \"string\"] }. For suggestedQuestions, generate 3 concise follow-up questions an advisor would naturally ask next based on the conversation context."
+  systemPromptBase: "You are AdvisorIQ, an AI assistant for LPL Financial advisors. Answer questions using only the provided documents and data sources. Always cite which document your answer comes from. If the query involves investment recommendations, suitability, or tax advice, append a compliance flag noting relevant FINRA or SEC considerations. Never fabricate information not present in the provided context. IMPORTANT: You must return the response as a JSON object with EXACTLY the following format, and do not wrap it in markdown block quotes. Format: { \"answer\": \"string containing your response in plain advisor-friendly language using markdown for formatting (use **bold** for headers, - for lists)\", \"sources\": [\"string\", \"string\"], \"complianceFlags\": [\"string\", \"string\"], \"dataSourcesUsed\": [\"string\"], \"suggestedQuestions\": [\"string\", \"string\", \"string\"] }. For suggestedQuestions, generate 3 concise follow-up questions an advisor would naturally ask next based on the conversation context."
 };
 
 // === DATA SOURCES ===
-const mockClientData = {
-  name: "Margaret Chen",
-  age: 58,
-  occupation: "Retired CFO",
-  aum: "$4.2M",
-  riskProfile: "Moderate-Aggressive",
-  concentration: "NVDA 40%",
-  state: "California",
-  marginalTaxRate: "~54%",
-  nextMeeting: "Tomorrow, Apr 20, 2026",
-  openItems: [
-    "CRT vs DAF comparison not sent",
-    "Private credit options not researched",
-    "Trust structure pending"
-  ],
-  portfolioAllocation: [
-    { name: 'Equity', value: 40, color: '#003087' },
-    { name: 'Fixed Income', value: 20, color: '#0055A5' },
-    { name: 'Real Estate', value: 18, color: '#4BA4D5' },
-    { name: 'Cash', value: 15, color: '#C9A84C' },
-    { name: 'Alternatives', value: 7, color: '#A08D45' }
-  ]
-};
+const mockClients = [
+  {
+    id: 'margaret',
+    name: "Margaret Chen",
+    age: 58,
+    occupation: "Retired CFO",
+    aum: "$4.2M",
+    riskProfile: "Moderate-Aggressive",
+    concentration: "NVDA 40%",
+    state: "California",
+    marginalTaxRate: "~54%",
+    nextMeeting: "Tomorrow, Apr 22, 2026",
+    openItems: [
+      "CRT vs DAF comparison not sent",
+      "Private credit options not researched",
+      "Trust structure pending"
+    ],
+    portfolioAllocation: [
+      { name: 'Equity', value: 40, color: '#003087' },
+      { name: 'Fixed Income', value: 20, color: '#0055A5' },
+      { name: 'Real Estate', value: 18, color: '#4BA4D5' },
+      { name: 'Cash', value: 15, color: '#C9A84C' },
+      { name: 'Alternatives', value: 7, color: '#A08D45' }
+    ]
+  },
+  {
+    id: 'robert',
+    name: "Robert Martinez",
+    age: 65,
+    occupation: "Business Owner",
+    aum: "$2.8M",
+    riskProfile: "Conservative",
+    concentration: "Cash 35%",
+    state: "Texas",
+    marginalTaxRate: "~37%",
+    nextMeeting: "Apr 25, 2026",
+    openItems: [
+      "IRA rollover strategy pending",
+      "Estate planning review overdue"
+    ],
+    portfolioAllocation: [
+      { name: 'Equity', value: 25, color: '#003087' },
+      { name: 'Fixed Income', value: 40, color: '#0055A5' },
+      { name: 'Real Estate', value: 0, color: '#4BA4D5' },
+      { name: 'Cash', value: 35, color: '#C9A84C' },
+      { name: 'Alternatives', value: 0, color: '#A08D45' }
+    ]
+  },
+  {
+    id: 'sarah',
+    name: "Sarah Johnson",
+    age: 45,
+    occupation: "Tech Executive",
+    aum: "$1.5M",
+    riskProfile: "Aggressive",
+    concentration: "Tech Sector 55%",
+    state: "Washington",
+    marginalTaxRate: "~43%",
+    nextMeeting: "May 2, 2026",
+    openItems: [
+      "RSU vesting strategy needed",
+      "401k allocation review"
+    ],
+    portfolioAllocation: [
+      { name: 'Equity', value: 65, color: '#003087' },
+      { name: 'Fixed Income', value: 10, color: '#0055A5' },
+      { name: 'Real Estate', value: 5, color: '#4BA4D5' },
+      { name: 'Cash', value: 10, color: '#C9A84C' },
+      { name: 'Alternatives', value: 10, color: '#A08D45' }
+    ]
+  },
+  {
+    id: 'david',
+    name: "David Park",
+    age: 52,
+    occupation: "Surgeon",
+    aum: "$3.1M",
+    riskProfile: "Moderate",
+    concentration: "Real Estate 42%",
+    state: "New York",
+    marginalTaxRate: "~50%",
+    nextMeeting: "May 8, 2026",
+    openItems: [
+      "Malpractice insurance review",
+      "529 plan contribution strategy"
+    ],
+    portfolioAllocation: [
+      { name: 'Equity', value: 30, color: '#003087' },
+      { name: 'Fixed Income', value: 18, color: '#0055A5' },
+      { name: 'Real Estate', value: 42, color: '#4BA4D5' },
+      { name: 'Cash', value: 5, color: '#C9A84C' },
+      { name: 'Alternatives', value: 5, color: '#A08D45' }
+    ]
+  }
+];
 
 const mockResearchData = {
   views: "Favor alternatives and private credit for 2026. 10-year Treasury expected to remain in 3.75-4.25% range. Policy-driven volatility expected."
@@ -44,7 +116,7 @@ const mockResearchData = {
 
 const mockComplianceData = [
   { trigger: "California", rule: "California-specific: Verify state suitability requirements under CCR Title 10", citation: "CCR Title 10" },
-  { trigger: "recommend", rule: "FINRA Rule 2111 \u2014 Suitability: Confirm client profile before recommending alternatives", citation: "FINRA Rule 2111" },
+  { trigger: "recommend", rule: "FINRA Rule 2111 — Suitability: Confirm client profile before recommending alternatives", citation: "FINRA Rule 2111" },
   { trigger: "tax", rule: "LPL Tax Advice Policy: Remind client that LPL Financial does not provide tax advice. Consult a tax professional.", citation: "LPL Policy" },
   { trigger: "NVDA", rule: "Concentrated position: Document client acknowledgment of NVDA concentration risk", citation: "Risk Disclosure" },
   { trigger: "concentrat", rule: "Concentrated position: Document client acknowledgment of concentration risk", citation: "Risk Disclosure" }
@@ -79,7 +151,6 @@ const loadSessions = (): ChatSession[] => {
 };
 
 const persistSessions = (sessions: ChatSession[]) => {
-  // Keep only the 20 most recent sessions
   const trimmed = sessions.slice(0, 20);
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(trimmed));
 };
@@ -101,9 +172,65 @@ const loadPdfJs = async () => {
    });
 };
 
+// === MARKDOWN RENDERER ===
+const renderInline = (text: string): React.ReactNode => {
+  const segments: React.ReactNode[] = [];
+  const regex = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) segments.push(text.slice(lastIndex, match.index));
+    if (match[1] !== undefined) segments.push(<strong key={match.index}>{match[1]}</strong>);
+    else segments.push(<em key={match.index}>{match[2]}</em>);
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) segments.push(text.slice(lastIndex));
+  return segments.length === 0 ? text : segments.length === 1 ? segments[0] : <>{segments}</>;
+};
+
+const renderMarkdown = (text: string): React.ReactNode => {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let key = 0;
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    elements.push(
+      <ul key={key++} className="list-disc pl-5 space-y-0.5 my-1">
+        {listItems.map((item, i) => <li key={i}>{renderInline(item)}</li>)}
+      </ul>
+    );
+    listItems = [];
+  };
+
+  lines.forEach((line) => {
+    if (line.startsWith('### ')) {
+      flushList();
+      elements.push(<p key={key++} className="font-bold text-sm mt-2 mb-0.5">{renderInline(line.slice(4))}</p>);
+    } else if (line.startsWith('## ')) {
+      flushList();
+      elements.push(<p key={key++} className="font-bold text-sm mt-2 mb-0.5">{renderInline(line.slice(3))}</p>);
+    } else if (line.startsWith('# ')) {
+      flushList();
+      elements.push(<p key={key++} className="font-bold text-base mt-2 mb-1">{renderInline(line.slice(2))}</p>);
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      listItems.push(line.slice(2));
+    } else if (line.trim() === '') {
+      flushList();
+      if (elements.length > 0) elements.push(<div key={key++} className="h-1" />);
+    } else {
+      flushList();
+      elements.push(<p key={key++} className="mb-0.5">{renderInline(line)}</p>);
+    }
+  });
+  flushList();
+  return <>{elements}</>;
+};
+
 // === API LAYER ===
-const constructPrompt = (inputText, uploadedDocs) => {
-  let contextData = `Current Client Context:\n${JSON.stringify(mockClientData, null, 2)}\n\nLPL Research Context (2026):\n${JSON.stringify(mockResearchData, null, 2)}\n\nCompliance Rules Available:\n${JSON.stringify(mockComplianceData, null, 2)}\n\nUploaded Documents:\n`;
+const constructPrompt = (inputText: string, uploadedDocs: any, clientData: any) => {
+  let contextData = `Current Client Context:\n${JSON.stringify(clientData, null, 2)}\n\nLPL Research Context (2026):\n${JSON.stringify(mockResearchData, null, 2)}\n\nCompliance Rules Available:\n${JSON.stringify(mockComplianceData, null, 2)}\n\nUploaded Documents:\n`;
   Object.values(uploadedDocs).forEach((doc: any) => {
      if (doc && doc.text) {
         const typeName = CONFIG.DOCUMENT_TYPES.find(t => t.id === doc.typeId)?.name;
@@ -113,10 +240,13 @@ const constructPrompt = (inputText, uploadedDocs) => {
   return `${contextData}\n\nUser Question: ${inputText}`;
 };
 
-const callAnthropicAPI = async (systemPrompt, userPrompt, apiKey) => {
+const callAnthropicAPI = async (systemPrompt: string, userPrompt: string, apiKey: string) => {
   try {
-    const response = await fetch('/api/anthropic/v1/messages', {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
@@ -130,6 +260,7 @@ const callAnthropicAPI = async (systemPrompt, userPrompt, apiKey) => {
         messages: [{ role: 'user', content: userPrompt }]
       })
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
        const errText = await response.text();
@@ -147,7 +278,7 @@ const callAnthropicAPI = async (systemPrompt, userPrompt, apiKey) => {
   }
 };
 
-const callGeminiAPI = async (systemPrompt, userPrompt) => {
+const callGeminiAPI = async (systemPrompt: string, userPrompt: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -171,9 +302,9 @@ const callGeminiAPI = async (systemPrompt, userPrompt) => {
   return JSON.parse(response.text);
 };
 
-const askAdvisorIQ = async (inputText, uploadedDocs) => {
+const askAdvisorIQ = async (inputText: string, uploadedDocs: any, clientData: any) => {
    const systemPrompt = CONFIG.systemPromptBase;
-   const fullPrompt = constructPrompt(inputText, uploadedDocs);
+   const fullPrompt = constructPrompt(inputText, uploadedDocs, clientData);
 
    const anthropicKey = (import.meta as any).env.VITE_ANTHROPIC_API_KEY;
    if (anthropicKey) {
@@ -186,9 +317,9 @@ const askAdvisorIQ = async (inputText, uploadedDocs) => {
 };
 
 // === UI COMPONENTS ===
-const WelcomeScreen = ({ onSuggestionClick }: any) => {
+const WelcomeScreen = ({ onSuggestionClick, clientName }: any) => {
   const queries = [
-    "Prepare meeting brief for Margaret tomorrow",
+    `Prepare meeting brief for ${clientName.split(' ')[0]} tomorrow`,
     "Compliance flags for NVDA concentration",
     "What does LPL Research say about private credit?",
     "What are the open items from our last meeting?"
@@ -196,7 +327,7 @@ const WelcomeScreen = ({ onSuggestionClick }: any) => {
 
   return (
     <div className="bg-white border border-border p-4 px-5 rounded-xl text-[14px] leading-relaxed mb-4 max-w-[85%] text-gray-800">
-      <p className="mb-4">Hello James. I've processed the uploaded portfolio for Margaret Chen and cross-referenced it with the LPL 2026 Outlook. How can I assist with your preparation for tomorrow's meeting?</p>
+      <p className="mb-4">Hello James. I've processed the uploaded portfolio for {clientName} and cross-referenced it with the LPL 2026 Outlook. How can I assist with your preparation for tomorrow's meeting?</p>
       <div className="grid grid-cols-2 gap-3">
         {queries.map((q, i) => (
           <button
@@ -229,11 +360,11 @@ const ChatMessage = ({ msg, isLast, onSuggestionClick }: any) => {
   return (
     <div className="mb-4">
       <div className="bg-white border border-border p-3 px-4 rounded-xl text-[14px] leading-relaxed max-w-[85%]">
-        <div className="whitespace-pre-wrap">{msg.content}</div>
+        <div className="text-[14px] leading-relaxed">{renderMarkdown(msg.content)}</div>
 
         {msg.sources && msg.sources.length > 0 && (
            <div className="mt-3">
-             {msg.sources.map((src, idx) => (
+             {msg.sources.map((src: string, idx: number) => (
                 <span key={idx} className="inline-block bg-[#EDF2F7] px-2 py-0.5 rounded text-[10px] font-semibold text-[#4A5568] mr-1">
                    [{src}]
                 </span>
@@ -243,7 +374,7 @@ const ChatMessage = ({ msg, isLast, onSuggestionClick }: any) => {
 
         {msg.complianceFlags && msg.complianceFlags.length > 0 && (
            <div className="space-y-2 mt-3">
-              {msg.complianceFlags.map((flag, idx) => (
+              {msg.complianceFlags.map((flag: string, idx: number) => (
                  <div key={idx} className="bg-[#FFFBEB] border border-[#FEF3C7] border-l-4 border-l-[#F59E0B] rounded-md p-3">
                     <div className="text-[11px] font-bold text-[#92400E] flex items-center gap-1 mb-1">
                        <span>⚠</span> COMPLIANCE NOTICE
@@ -262,7 +393,7 @@ const ChatMessage = ({ msg, isLast, onSuggestionClick }: any) => {
 
       {isLast && msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2 max-w-[85%]">
-          {msg.suggestedQuestions.map((q, idx) => (
+          {msg.suggestedQuestions.map((q: string, idx: number) => (
             <button
               key={idx}
               onClick={() => onSuggestionClick(q)}
@@ -279,16 +410,37 @@ const ChatMessage = ({ msg, isLast, onSuggestionClick }: any) => {
 
 const DocumentSlot = ({ type, doc, onUpload, isProcessing }: any) => {
    const fileInputRef = useRef<HTMLInputElement>(null);
+   const [isDragOver, setIsDragOver] = useState(false);
+
+   const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files?.[0];
+      if (file && file.type === 'application/pdf') onUpload(file);
+   };
 
    return (
-      <div className={`border border-dashed border-[#CBD5E1] rounded-md p-2.5 mb-2 text-xs transition-all ${doc ? 'bg-[#EFF6FF] border-blue-200 border-solid' : 'bg-[#F8FAFC]'}`}>
+      <div
+         className={`border rounded-md p-2.5 mb-2 text-xs transition-all cursor-pointer ${
+           isDragOver
+             ? 'border-[#003087] bg-[#EEF2FF] border-solid scale-[1.01]'
+             : doc
+             ? 'border-blue-200 bg-[#EFF6FF] border-solid'
+             : 'border-dashed border-[#CBD5E1] bg-[#F8FAFC]'
+         }`}
+         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+         onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true); }}
+         onDragLeave={() => setIsDragOver(false)}
+         onDrop={handleDrop}
+         onClick={() => !doc && !isProcessing && fileInputRef.current?.click()}
+      >
          <div className="flex justify-between font-semibold text-gray-700">
             <span className={doc ? "text-blue-700" : (isProcessing ? "opacity-50" : "opacity-75")}>{type.name}</span>
             {doc ? (
                <span className="text-green-600">✓</span>
             ) : (
                <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
                   disabled={isProcessing}
                   className="text-blue-500 hover:text-blue-700 disabled:opacity-50 cursor-pointer"
                >
@@ -300,10 +452,17 @@ const DocumentSlot = ({ type, doc, onUpload, isProcessing }: any) => {
             {doc ? (
                <>
                   <span className="text-[10px] text-blue-500 truncate" title={doc.filename}>{doc.filename}</span>
-                  <button onClick={() => fileInputRef.current?.click()} className="text-[9px] text-[#003087] hover:underline">Replace</button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                    className="text-[9px] text-[#003087] hover:underline"
+                  >
+                    Replace
+                  </button>
                </>
             ) : (
-               <span className="text-[10px] text-gray-400 italic">{isProcessing ? "Processing..." : "No file selected"}</span>
+               <span className="text-[10px] text-gray-400 italic">
+                 {isProcessing ? "Processing..." : isDragOver ? "Drop PDF here" : "Click or drag PDF here"}
+               </span>
             )}
          </div>
          <input
@@ -321,6 +480,73 @@ const DocumentSlot = ({ type, doc, onUpload, isProcessing }: any) => {
    );
 };
 
+const AdvisorPanel = ({ clients, selectedClientId, onSelectClient, onClose }: any) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
+      <div
+        className="mt-[64px] mr-0 w-[340px] bg-white border-l border-b border-border shadow-xl h-[calc(100vh-64px)] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div>
+            <div className="font-bold text-sm text-gray-800">James Whitfield</div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">AI Advisor Solutions</div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-4 border-b border-border bg-[#F8F9FB]">
+          <div className="flex items-center gap-2 text-[11px] text-gray-500 font-bold uppercase tracking-widest">
+            <Users size={12} />
+            My Clients ({clients.length})
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {clients.map((client: any) => {
+            const isSelected = client.id === selectedClientId;
+            const initials = client.name.split(' ').map((n: string) => n[0]).join('');
+            return (
+              <button
+                key={client.id}
+                onClick={() => { onSelectClient(client.id); onClose(); }}
+                className={`w-full text-left p-4 border-b border-border transition-colors flex items-center gap-3 ${
+                  isSelected ? 'bg-[#EEF2FF]' : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className={`h-9 w-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+                  isSelected ? 'bg-[#003087] text-white' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-semibold ${isSelected ? 'text-[#003087]' : 'text-gray-800'}`}>
+                      {client.name}
+                    </span>
+                    {isSelected && <span className="text-[9px] bg-[#003087] text-white px-1.5 py-0.5 rounded font-bold uppercase">Active</span>}
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">{client.occupation} • Age {client.age}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[11px] font-bold text-gray-700">{client.aum} AUM</span>
+                    <span className="text-[10px] text-gray-400">{client.state}</span>
+                  </div>
+                  {client.openItems.length > 0 && (
+                    <div className="mt-1 text-[10px] text-orange-600 font-medium">{client.openItems.length} open item{client.openItems.length > 1 ? 's' : ''}</div>
+                  )}
+                </div>
+                <ChevronRight size={14} className="text-gray-300 shrink-0" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // === MAIN APP COMPONENT ===
 export default function App() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -330,8 +556,12 @@ export default function App() {
   const [isThinking, setIsThinking] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, any>>({});
   const [processingDocs, setProcessingDocs] = useState<Record<string, boolean>>({});
+  const [selectedClientId, setSelectedClientId] = useState<string>('margaret');
+  const [showAdvisorPanel, setShowAdvisorPanel] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const selectedClient = mockClients.find(c => c.id === selectedClientId) || mockClients[0];
 
   useEffect(() => {
      loadPdfJs().catch(err => console.error("Failed to load PDF.js", err));
@@ -367,6 +597,19 @@ export default function App() {
     setMessages(session.messages);
     setCurrentSessionId(session.id);
     setInputText("");
+  };
+
+  const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    setSessions(prev => {
+      const updated = prev.filter(s => s.id !== sessionId);
+      persistSessions(updated);
+      return updated;
+    });
+    if (sessionId === currentSessionId) {
+      setMessages([]);
+      setCurrentSessionId(newSessionId());
+    }
   };
 
   const handleUpload = async (docTypeId: string, file: File) => {
@@ -407,7 +650,7 @@ export default function App() {
      setIsThinking(true);
 
      try {
-        const responseData = await askAdvisorIQ(query, uploadedDocs);
+        const responseData = await askAdvisorIQ(query, uploadedDocs, selectedClient);
         const assistantMsg: ChatMsg = {
            role: 'assistant',
            content: responseData.answer || "No specific answer provided.",
@@ -440,20 +683,32 @@ export default function App() {
   return (
     <div className="flex h-screen bg-bg flex-col overflow-hidden font-sans text-[#1A1C21]">
       {/* Header */}
-      <header className="h-[64px] bg-white border-b-2 border-[#003087] flex items-center justify-between px-6 shrink-0">
+      <header className="h-[64px] bg-white border-b-2 border-[#003087] flex items-center justify-between px-6 shrink-0 z-40">
         <div className="flex items-center gap-3">
           <div className="font-bold text-[18px] text-[#003087]">LPL Financial <span className="text-[#C9A84C] ml-1 font-medium">AdvisorIQ</span></div>
           <div className="h-4 w-[1px] bg-gray-300"></div>
           <div className="text-[10px] text-gray-500 uppercase tracking-wider">Powered by LPL Research</div>
         </div>
-        <div className="flex items-center gap-4">
+        <button
+          onClick={() => setShowAdvisorPanel(prev => !prev)}
+          className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer"
+        >
           <div className="text-right">
              <div className="text-xs font-bold text-gray-800">James Whitfield</div>
              <div className="text-[10px] text-gray-400">AI Advisor Solutions</div>
           </div>
-          <div className="h-10 w-10 rounded-full bg-[#003087] flex items-center justify-center text-white font-bold">JW</div>
-        </div>
+          <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-bold transition-colors ${showAdvisorPanel ? 'bg-[#C9A84C]' : 'bg-[#003087]'}`}>JW</div>
+        </button>
       </header>
+
+      {showAdvisorPanel && (
+        <AdvisorPanel
+          clients={mockClients}
+          selectedClientId={selectedClientId}
+          onSelectClient={(id: string) => { setSelectedClientId(id); setMessages([]); setCurrentSessionId(newSessionId()); }}
+          onClose={() => setShowAdvisorPanel(false)}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -477,7 +732,7 @@ export default function App() {
                  key={type.id}
                  type={type}
                  doc={uploadedDocs[type.id]}
-                 onUpload={(file) => handleUpload(type.id, file)}
+                 onUpload={(file: File) => handleUpload(type.id, file)}
                  isProcessing={processingDocs[type.id]}
               />
             ))}
@@ -489,14 +744,25 @@ export default function App() {
               <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Recent Chats</h2>
               <div className="space-y-1">
                 {sessions.map(session => (
-                  <button
+                  <div
                     key={session.id}
-                    onClick={() => handleLoadSession(session)}
-                    className={`w-full text-left flex items-start gap-2 px-2 py-2 rounded-lg text-xs transition-colors ${session.id === currentSessionId ? 'bg-[#EEF2FF] text-[#003087]' : 'hover:bg-gray-50 text-gray-600'}`}
+                    className={`group w-full flex items-center gap-1 px-2 py-2 rounded-lg text-xs transition-colors ${session.id === currentSessionId ? 'bg-[#EEF2FF] text-[#003087]' : 'hover:bg-gray-50 text-gray-600'}`}
                   >
-                    <MessageSquare size={12} className="mt-0.5 shrink-0 opacity-60" />
-                    <span className="truncate leading-relaxed">{session.title}</span>
-                  </button>
+                    <button
+                      onClick={() => handleLoadSession(session)}
+                      className="flex items-start gap-2 flex-1 min-w-0 text-left"
+                    >
+                      <MessageSquare size={12} className="mt-0.5 shrink-0 opacity-60" />
+                      <span className="truncate leading-relaxed">{session.title}</span>
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteSession(e, session.id)}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all p-0.5 rounded"
+                      title="Delete chat"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -507,29 +773,29 @@ export default function App() {
             <div className="bg-white border border-border rounded-xl p-4 m-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)]">
                <div className="flex items-center gap-3 mb-3">
                   <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-gray-800">
-                     {mockClientData.name.split(' ').map(n=>n[0]).join('')}
+                     {selectedClient.name.split(' ').map(n=>n[0]).join('')}
                   </div>
                   <div>
-                     <div className="text-sm font-bold text-gray-800">{mockClientData.name}</div>
-                     <div className="text-[10px] text-gray-500">Age {mockClientData.age} • {mockClientData.state}</div>
+                     <div className="text-sm font-bold text-gray-800">{selectedClient.name}</div>
+                     <div className="text-[10px] text-gray-500">Age {selectedClient.age} • {selectedClient.state}</div>
                   </div>
                </div>
                <div className="space-y-2">
                   <div className="flex justify-between text-xs">
                      <span className="text-gray-500">Total AUM</span>
-                     <span className="font-bold text-gray-800">{mockClientData.aum}</span>
+                     <span className="font-bold text-gray-800">{selectedClient.aum}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                      <span className="text-gray-500">Risk Profile</span>
-                     <span className="font-bold text-gray-800">{mockClientData.riskProfile}</span>
+                     <span className="font-bold text-gray-800">{selectedClient.riskProfile}</span>
                   </div>
                   <div className="flex flex-wrap gap-1 mt-2">
-                     <span className="bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 rounded text-[9px] font-bold tracking-tight uppercase">NVDA CONCENTRATION (40%)</span>
-                     <span className="bg-[#FFEDD5] text-[#9A3412] px-2 py-0.5 rounded text-[9px] font-bold tracking-tight uppercase">{mockClientData.openItems.length} OPEN ITEMS</span>
+                     <span className="bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 rounded text-[9px] font-bold tracking-tight uppercase">{selectedClient.concentration}</span>
+                     <span className="bg-[#FFEDD5] text-[#9A3412] px-2 py-0.5 rounded text-[9px] font-bold tracking-tight uppercase">{selectedClient.openItems.length} OPEN ITEMS</span>
                   </div>
                   <div className="mt-3 pt-3 border-t border-gray-100">
                      <div className="text-[10px] text-gray-400">Next Meeting</div>
-                     <div className="text-xs font-semibold text-gray-800">{mockClientData.nextMeeting}</div>
+                     <div className="text-xs font-semibold text-gray-800">{selectedClient.nextMeeting}</div>
                   </div>
                </div>
             </div>
@@ -540,7 +806,7 @@ export default function App() {
         <main className="flex-1 flex flex-col min-w-0 bg-[#F8F9FB] relative">
           <div className="flex-1 overflow-y-auto p-6 space-y-4 pr-2">
             {messages.length === 0 ? (
-               <WelcomeScreen onSuggestionClick={handleQuerySubmit} />
+               <WelcomeScreen onSuggestionClick={handleQuerySubmit} clientName={selectedClient.name} />
             ) : (
                <div className="max-w-4xl mx-auto space-y-4">
                   {messages.map((msg, i) => (
