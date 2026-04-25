@@ -1,16 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { FileText, Shield, TrendingUp, Info, Plus, MessageSquare, Trash2, X, Users, ChevronRight } from 'lucide-react';
+import { FileText, Shield, TrendingUp, Info, Plus, MessageSquare, Trash2, X, Users, ChevronRight, CheckCircle2, Upload, PenLine, ExternalLink, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 // === CONFIG ===
 const CONFIG = {
   DOCUMENT_TYPES: [
-    { id: 'portfolio', name: 'Client Portfolio', icon: TrendingUp },
-    { id: 'meeting', name: 'Meeting History', icon: FileText },
-    { id: 'research', name: 'LPL Research Report', icon: Info },
-    { id: 'compliance', name: 'Compliance / Regulatory Document', icon: Shield }
+    { id: 'portfolio', name: 'Client Portfolio', icon: TrendingUp, syncLabel: 'Synced from ClientWorks · Apr 24, 2026' },
+    { id: 'meeting', name: 'Meeting History', icon: FileText, syncLabel: '3 sessions synced · Last: Mar 15, 2026' },
+    { id: 'research', name: 'LPL Research Report', icon: Info, syncLabel: '2026 Outlook loaded · LPL Research' },
+    { id: 'compliance', name: 'Compliance / Regulatory Document', icon: Shield, syncLabel: 'Auto-updated · FINRA compliant' }
   ],
-  systemPromptBase: "You are AdvisorIQ, an AI assistant for LPL Financial advisors. Answer questions using only the provided documents and data sources. Always cite which document your answer comes from. If the query involves investment recommendations, suitability, or tax advice, append a compliance flag noting relevant FINRA or SEC considerations. Never fabricate information not present in the provided context. IMPORTANT: You must return the response as a JSON object with EXACTLY the following format, and do not wrap it in markdown block quotes. Format: { \"answer\": \"string containing your response in plain advisor-friendly language using markdown for formatting (use **bold** for headers, - for lists)\", \"sources\": [\"string\", \"string\"], \"complianceFlags\": [\"string\", \"string\"], \"dataSourcesUsed\": [\"string\"], \"suggestedQuestions\": [\"string\", \"string\", \"string\"] }. For suggestedQuestions, generate 3 concise follow-up questions an advisor would naturally ask next based on the conversation context."
+  systemPromptBase: "You are AdvisorIQ, an AI assistant for LPL Financial advisors. You have access to data automatically synced from ClientWorks (client portfolio and meeting history), LPL Research 2026 Outlook, and FINRA/SEC compliance rules. Answer questions by synthesizing information across all available data sources. ALWAYS cite at least two data sources in every response, and end your answer with citation tags like [ClientWorks] [LPL Research 2026] [FINRA Rule 2111] as applicable. If the query involves investment recommendations, suitability, or tax advice, append a compliance flag noting relevant FINRA or SEC considerations. IMPORTANT: You must return the response as a JSON object with EXACTLY the following format, and do not wrap it in markdown block quotes. Format: { \"answer\": \"string containing your response in plain advisor-friendly language using markdown for formatting (use **bold** for headers, - for lists). End with citation tags like [ClientWorks] [LPL Research 2026] [FINRA Rule 2111]\", \"sources\": [\"ClientWorks\", \"LPL Research 2026\"], \"complianceFlags\": [\"string\"], \"dataSourcesUsed\": [\"string\"], \"suggestedQuestions\": [\"string\", \"string\", \"string\"] }. For suggestedQuestions, generate 3 concise follow-up questions an advisor would naturally ask next."
 };
 
 // === DATA SOURCES ===
@@ -108,6 +109,185 @@ const mockClients = [
       { name: 'Alternatives', value: 5, color: '#A08D45' }
     ]
   }
+];
+
+const MOCK_DOC_CONTENT: Record<string, string> = {
+  portfolio: `CLIENT PORTFOLIO — Margaret Chen
+Source: ClientWorks  |  As of: April 24, 2026
+
+Total AUM: $4,200,000
+Risk Profile: Moderate-Aggressive
+Marginal Tax Rate: ~54% (California)
+Occupation: Retired CFO, Age 58
+
+─── HOLDINGS ───────────────────────────
+NVDA (NVIDIA Corp)       40%   $1,680,000
+Fixed Income (diversified) 20%   $840,000
+Real Estate                18%   $756,000
+Cash & Equivalents         15%   $630,000
+Alternatives                7%   $294,000
+
+─── FLAGS ──────────────────────────────
+⚠  NVDA position at 40% — concentrated single-stock risk
+⚠  California suitability review required (CCR Title 10)
+⚠  High marginal tax rate — tax-efficient structures advised
+
+─── OPEN ITEMS ─────────────────────────
+• CRT vs DAF comparison — not sent (since Jan 2026)
+• Private credit options — not researched
+• Trust structure — pending legal review`,
+
+  meeting: `MEETING HISTORY — Margaret Chen
+Source: ClientWorks CRM  |  3 sessions on file
+
+─── SESSION 3 — Mar 15, 2026 ───────────
+Topics: Estate planning, trust structure, wealth transfer
+Duration: 60 min  |  Format: In-person
+Key Discussion:
+  - Reviewed irrevocable trust options for estate tax mitigation
+  - Client expressed interest in charitable remainder trust (CRT)
+  - Discussed DAF as alternative for philanthropic goals
+Action Items (PENDING):
+  • Send CRT vs DAF side-by-side comparison
+  • Introduce estate attorney contact
+
+─── SESSION 2 — Feb 28, 2026 ───────────
+Topics: NVDA concentration, private credit overview
+Duration: 45 min  |  Format: Video call
+Key Discussion:
+  - Reviewed NVDA position and downside risk scenarios
+  - Client acknowledged concentration risk (documented)
+  - Introduced private credit as alternative yield source
+Action Items (PENDING):
+  • Research LPL-approved private credit vehicles
+  • Model portfolio impact of 10% alt allocation
+
+─── SESSION 1 — Jan 12, 2026 ───────────
+Topics: Year-end tax review, Q1 strategy
+Duration: 50 min  |  Format: In-person
+Key Discussion:
+  - Reviewed 2025 realized gains and tax positioning
+  - Discussed harvesting losses in fixed income sleeve
+Action Items (COMPLETE): Tax summary sent ✓`,
+
+  research: `LPL RESEARCH 2026 OUTLOOK
+Source: LPL Research  |  Published: January 2026
+
+─── MACRO VIEWS ────────────────────────
+• 10-Year Treasury: 3.75–4.25% range expected through 2026
+• Equities: Neutral; policy-driven volatility elevated in H1
+• Inflation: Moderating but above 2% target through mid-year
+• Fed: 1–2 cuts expected in H2 2026, data-dependent
+
+─── ASSET CLASS RECOMMENDATIONS ─────────
+Overweight:
+  + Private Credit — strong risk-adjusted yield vs. IG bonds
+  + Infrastructure & Real Assets — inflation hedge
+  + Alternatives — low correlation in volatile environment
+
+Neutral:
+  = US Large Cap Equity — valuation stretched post-AI rally
+  = International Developed — currency risk offsets value
+
+Underweight:
+  - Long-Duration Treasuries — rate sensitivity risk
+  - Speculative Tech — AI concentration premium elevated
+
+─── HIGH-NET-WORTH GUIDANCE ────────────
+• California clients: prioritize tax-efficient structures
+  (CRT, DAF, 1031 exchanges, direct indexing)
+• Concentrated equity positions: systematic diversification
+  recommended; explore exchange funds or collars
+• Estate planning: elevated exemption sunset risk in 2026`,
+
+  compliance: `COMPLIANCE REFERENCE — Active Rules
+Source: LPL Compliance Engine  |  Auto-updated: April 24, 2026
+
+─── FINRA RULE 2111 — SUITABILITY ──────
+Advisors must have a reasonable basis to believe a
+recommendation is suitable for the customer based on their
+investment profile. Document client profile before recommending
+alternatives, concentrated equity, or leveraged products.
+
+─── SEC REGULATION BEST INTEREST ───────
+All recommendations must be in the client's best interest.
+Full documentation of rationale required. Conflicts of interest
+must be disclosed at point of recommendation.
+
+─── CCR TITLE 10 (CALIFORNIA) ──────────
+California-specific suitability requirements apply to all
+product recommendations made to CA-domiciled clients.
+State-level fiduciary standard may exceed federal requirements.
+
+─── LPL TAX ADVICE POLICY ──────────────
+LPL Financial does not provide tax advice. Advisors may
+discuss general tax concepts but must refer clients to a
+qualified CPA or tax attorney for specific advice.
+
+─── CONCENTRATED POSITION POLICY ───────
+Positions exceeding 20% of portfolio in a single security
+require documented client acknowledgment of concentration risk.
+Annual review and re-acknowledgment recommended.
+
+─── CHARITABLE GIVING RULES ────────────
+CRT and DAF recommendations require disclosure of tax
+benefits, limitations, and irrevocability where applicable.
+Refer to LPL Charitable Strategies desk for structuring.`
+};
+
+const COMPLIANCE_RULES_DETAILED = [
+  {
+    id: 'finra-2111', badge: 'FINRA', badgeColor: 'bg-blue-100 text-blue-700',
+    title: 'Rule 2111 — Suitability',
+    summary: 'Must confirm client investment profile before recommending alternatives, concentrated equity, or leveraged products.',
+    url: 'https://www.finra.org/rules-guidance/rulebooks/finra-rules/2111',
+    trigger: 'Any investment recommendation'
+  },
+  {
+    id: 'reg-bi', badge: 'SEC', badgeColor: 'bg-purple-100 text-purple-700',
+    title: 'Regulation Best Interest (Rule 15l-1)',
+    summary: "All recommendations must prioritize the client's best interest. Conflicts of interest must be disclosed at point of recommendation.",
+    url: 'https://www.sec.gov/info/smallbus/secg/regulation-best-interest',
+    trigger: 'Any product or strategy recommendation'
+  },
+  {
+    id: 'ca-ccr', badge: 'CA', badgeColor: 'bg-yellow-100 text-yellow-700',
+    title: 'CCR Title 10 — California Suitability',
+    summary: 'California-specific suitability requirements for CA-domiciled clients. State fiduciary standard may exceed federal requirements.',
+    url: 'https://dfpi.ca.gov/licensees-and-industries/investment-advisers/',
+    trigger: 'Client is California-domiciled ✓ (Margaret Chen)'
+  },
+  {
+    id: 'lpl-tax', badge: 'LPL', badgeColor: 'bg-green-100 text-green-700',
+    title: 'LPL Tax Advice Policy',
+    summary: 'LPL Financial does not provide tax advice. Advisors may discuss general tax concepts but must refer clients to a CPA or tax attorney.',
+    url: 'https://www.irs.gov/businesses/small-businesses-self-employed/investment-income-and-expenses',
+    trigger: 'Any tax-related strategy discussion'
+  },
+  {
+    id: 'concentration', badge: 'FINRA', badgeColor: 'bg-red-100 text-red-700',
+    title: 'Concentrated Position Policy',
+    summary: 'Positions >20% in a single security require documented client acknowledgment of concentration risk. Annual re-acknowledgment recommended.',
+    url: 'https://www.finra.org/investors/insights/concentrated-stock-positions',
+    trigger: 'NVDA at 40% — acknowledgment required ⚠'
+  },
+  {
+    id: 'charitable', badge: 'IRS', badgeColor: 'bg-orange-100 text-orange-700',
+    title: 'Charitable Remainder Trust & DAF Rules',
+    summary: 'CRT and DAF recommendations require disclosure of irrevocability, tax benefits, distribution requirements, and investment restrictions.',
+    url: 'https://www.irs.gov/charities-non-profits/charitable-remainder-trusts',
+    trigger: 'CRT or DAF discussion with client'
+  }
+];
+
+const RESEARCH_ASSET_CLASSES = [
+  { name: 'Private Credit', stance: 'Overweight', note: 'Strong risk-adjusted yield vs. IG bonds' },
+  { name: 'Infrastructure & Real Assets', stance: 'Overweight', note: 'Inflation hedge, low correlation to equities' },
+  { name: 'Alternatives', stance: 'Overweight', note: 'Diversification in policy-volatile environment' },
+  { name: 'US Large Cap Equity', stance: 'Neutral', note: 'Valuation stretched post-AI rally' },
+  { name: 'International Developed', stance: 'Neutral', note: 'Currency risk offsets valuation discount' },
+  { name: 'Long-Duration Treasuries', stance: 'Underweight', note: 'Rate sensitivity risk remains elevated' },
+  { name: 'Speculative Tech', stance: 'Underweight', note: 'AI concentration premium at historical highs' }
 ];
 
 const mockResearchData = {
@@ -229,8 +409,11 @@ const renderMarkdown = (text: string): React.ReactNode => {
 };
 
 // === API LAYER ===
-const constructPrompt = (inputText: string, uploadedDocs: any, clientData: any) => {
-  let contextData = `Current Client Context:\n${JSON.stringify(clientData, null, 2)}\n\nLPL Research Context (2026):\n${JSON.stringify(mockResearchData, null, 2)}\n\nCompliance Rules Available:\n${JSON.stringify(mockComplianceData, null, 2)}\n\nUploaded Documents:\n`;
+const constructPrompt = (inputText: string, uploadedDocs: any, clientData: any, advisorNotes: string[]) => {
+  const notesSection = advisorNotes.length > 0
+    ? `\n\nAdvisor Notes & Updates (manually entered — high priority context):\n${advisorNotes.map((n, i) => `${i + 1}. ${n}`).join('\n')}`
+    : '';
+  let contextData = `Current Client Context:\n${JSON.stringify(clientData, null, 2)}${notesSection}\n\nLPL Research Context (2026):\n${JSON.stringify(mockResearchData, null, 2)}\n\nCompliance Rules Available:\n${JSON.stringify(mockComplianceData, null, 2)}\n\nUploaded Documents:\n`;
   Object.values(uploadedDocs).forEach((doc: any) => {
      if (doc && doc.text) {
         const typeName = CONFIG.DOCUMENT_TYPES.find(t => t.id === doc.typeId)?.name;
@@ -302,9 +485,9 @@ const callGeminiAPI = async (systemPrompt: string, userPrompt: string) => {
   return JSON.parse(response.text);
 };
 
-const askAdvisorIQ = async (inputText: string, uploadedDocs: any, clientData: any) => {
+const askAdvisorIQ = async (inputText: string, uploadedDocs: any, clientData: any, advisorNotes: string[]) => {
    const systemPrompt = CONFIG.systemPromptBase;
-   const fullPrompt = constructPrompt(inputText, uploadedDocs, clientData);
+   const fullPrompt = constructPrompt(inputText, uploadedDocs, clientData, advisorNotes);
 
    const anthropicKey = (import.meta as any).env.VITE_ANTHROPIC_API_KEY;
    if (anthropicKey) {
@@ -318,22 +501,24 @@ const askAdvisorIQ = async (inputText: string, uploadedDocs: any, clientData: an
 
 // === UI COMPONENTS ===
 const WelcomeScreen = ({ onSuggestionClick, clientName }: any) => {
+  const firstName = clientName.split(' ')[0];
   const queries = [
-    `Prepare meeting brief for ${clientName.split(' ')[0]} tomorrow`,
+    `Prepare meeting brief for ${firstName} tomorrow`,
     "Compliance flags for NVDA concentration",
     "What does LPL Research say about private credit?",
-    "What are the open items from our last meeting?"
+    "What are the open items from our last meeting?",
+    `Should ${firstName} rebalance, harvest losses, or hold given her NVDA concentration?`
   ];
 
   return (
     <div className="bg-white border border-border p-4 px-5 rounded-xl text-[14px] leading-relaxed mb-4 max-w-[85%] text-gray-800">
-      <p className="mb-4">Hello James. I've processed the uploaded portfolio for {clientName} and cross-referenced it with the LPL 2026 Outlook. How can I assist with your preparation for tomorrow's meeting?</p>
+      <p className="mb-4">I've pulled {clientName}'s latest portfolio and activity directly from ClientWorks, and loaded today's LPL Research and compliance rules. How can I assist with your preparation for tomorrow's meeting?</p>
       <div className="grid grid-cols-2 gap-3">
         {queries.map((q, i) => (
           <button
              key={i}
              onClick={() => onSuggestionClick(q)}
-             className="text-left p-3 border border-border rounded-lg hover:border-[#003087] transition-colors group"
+             className={`text-left p-3 border border-border rounded-lg hover:border-[#003087] transition-colors group${i === 4 ? ' col-span-2' : ''}`}
           >
              <div className="text-[10px] text-gray-400 font-bold uppercase mb-1">Suggested</div>
              <div className="text-xs font-medium group-hover:text-[#003087]">{q}</div>
@@ -408,74 +593,326 @@ const ChatMessage = ({ msg, isLast, onSuggestionClick }: any) => {
   );
 };
 
-const DocumentSlot = ({ type, doc, onUpload, isProcessing }: any) => {
-   const fileInputRef = useRef<HTMLInputElement>(null);
-   const [isDragOver, setIsDragOver] = useState(false);
+const DocumentSlot = ({ type, uploadedDoc, onClick }: any) => {
+   return (
+      <button
+         onClick={onClick}
+         className="w-full text-left border border-green-100 bg-[#F0FDF4] hover:bg-[#DCFCE7] hover:border-green-300 rounded-md p-2.5 mb-2 text-xs transition-colors group"
+      >
+         <div className="flex items-center justify-between">
+            <span className="font-semibold text-gray-700 group-hover:text-green-800">{type.name}</span>
+            <div className="flex items-center gap-1">
+               {uploadedDoc && <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase">Overridden</span>}
+               <CheckCircle2 size={13} className="text-green-500 shrink-0" />
+            </div>
+         </div>
+         <div className="mt-1 text-[10px] text-green-600">
+            {uploadedDoc ? `Overridden: ${uploadedDoc.filename}` : type.syncLabel}
+         </div>
+      </button>
+   );
+};
 
-   const handleDrop = (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file && file.type === 'application/pdf') onUpload(file);
+// === DOCUMENT VIEWS ===
+const PortfolioDocView = ({ client }: any) => {
+  const totalAum = parseFloat(client.aum.replace(/[$M]/g, '')) * 1_000_000;
+  return (
+    <div className="space-y-5">
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: 'Total AUM', value: client.aum },
+          { label: 'Risk Profile', value: client.riskProfile },
+          { label: 'Tax Rate', value: client.marginalTaxRate }
+        ].map(s => (
+          <div key={s.label} className="bg-[#F8FAFC] border border-border rounded-lg p-3 text-center">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">{s.label}</div>
+            <div className="text-sm font-bold text-gray-800 mt-0.5">{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Donut chart + legend */}
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Portfolio Allocation</div>
+        <div className="flex items-center gap-4">
+          <ResponsiveContainer width={160} height={160}>
+            <PieChart>
+              <Pie data={client.portfolioAllocation} cx="50%" cy="50%" innerRadius={45} outerRadius={72} paddingAngle={2} dataKey="value">
+                {client.portfolioAllocation.map((entry: any, i: number) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: any) => `${v}%`} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex-1 space-y-2">
+            {client.portfolioAllocation.map((a: any) => (
+              <div key={a.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
+                  <span className="text-xs text-gray-600">{a.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${a.value}%`, backgroundColor: a.color }} />
+                  </div>
+                  <span className="text-xs font-bold text-gray-700 w-8 text-right">{a.value}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Holdings table */}
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Key Holdings</div>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border text-gray-400 text-[10px]">
+              <th className="text-left pb-1.5">Asset</th>
+              <th className="text-right pb-1.5">Weight</th>
+              <th className="text-right pb-1.5">Value</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {client.portfolioAllocation.map((a: any) => (
+              <tr key={a.name}>
+                <td className="py-1.5 text-gray-700">{a.name}</td>
+                <td className="py-1.5 text-right font-medium text-gray-700">{a.value}%</td>
+                <td className="py-1.5 text-right text-gray-500">${((totalAum * a.value) / 100 / 1000).toFixed(0)}K</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Flags */}
+      <div className="space-y-2">
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Risk Flags</div>
+        <div className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-lg p-3">
+          <AlertTriangle size={13} className="text-red-500 mt-0.5 shrink-0" />
+          <span className="text-xs text-red-700">{client.concentration} — concentrated single-stock risk. Client acknowledgment required.</span>
+        </div>
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg p-3">
+          <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+          <span className="text-xs text-amber-700">Marginal tax rate {client.marginalTaxRate} ({client.state}) — tax-efficient structures advised.</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MeetingDocView = ({ advisorNotes }: any) => {
+  const sessions = [
+    {
+      date: 'Mar 15, 2026', format: 'In-person', duration: '60 min',
+      topics: ['Estate planning', 'Trust structure', 'CRT vs DAF'],
+      items: [{ text: 'Send CRT vs DAF comparison', done: false }, { text: 'Introduce estate attorney contact', done: false }]
+    },
+    {
+      date: 'Feb 28, 2026', format: 'Video call', duration: '45 min',
+      topics: ['NVDA concentration review', 'Private credit overview'],
+      items: [{ text: 'Research LPL-approved private credit vehicles', done: false }, { text: 'Model portfolio impact of 10% alt allocation', done: false }]
+    },
+    {
+      date: 'Jan 12, 2026', format: 'In-person', duration: '50 min',
+      topics: ['Year-end tax review', 'Q1 strategy'],
+      items: [{ text: 'Send 2025 tax summary', done: true }]
+    }
+  ];
+  const meetingNotes = (advisorNotes || []).filter((n: string) => /meeting|session|discussed|client said|update/i.test(n));
+
+  return (
+    <div className="space-y-4">
+      {meetingNotes.length > 0 && (
+        <div className="bg-[#EEF2FF] border border-[#003087]/20 rounded-lg p-3">
+          <div className="text-[10px] font-bold text-[#003087] uppercase tracking-widest mb-2">Advisor Updates</div>
+          {meetingNotes.map((n: string, i: number) => (
+            <div key={i} className="flex items-start gap-2 text-xs text-[#003087] mb-1">
+              <span className="mt-0.5">•</span><span>{n}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {sessions.map((s, i) => (
+        <div key={i} className="border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-bold text-gray-800">{s.date}</span>
+            <div className="flex gap-1.5">
+              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-medium">{s.format}</span>
+              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-medium">{s.duration}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1 mb-3">
+            {s.topics.map(t => <span key={t} className="text-[10px] bg-[#EFF6FF] text-blue-600 px-2 py-0.5 rounded">{t}</span>)}
+          </div>
+          <div className="space-y-1.5">
+            {s.items.map((item, j) => (
+              <div key={j} className="flex items-start gap-2">
+                <div className={`h-3.5 w-3.5 rounded-full border-2 mt-0.5 shrink-0 flex items-center justify-center ${item.done ? 'bg-green-500 border-green-500' : 'border-amber-400'}`}>
+                  {item.done && <span className="text-white text-[8px]">✓</span>}
+                </div>
+                <span className={`text-xs ${item.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.text}</span>
+                {!item.done && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ml-auto shrink-0">Pending</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ResearchDocView = () => {
+  const macroStats = [
+    { label: '10-Yr Treasury', value: '3.75–4.25%', sub: 'Expected range' },
+    { label: 'Fed Cuts', value: '1–2', sub: 'Expected H2 2026' },
+    { label: 'Inflation', value: '>2%', sub: 'Through mid-year' }
+  ];
+  const stanceStyle: Record<string, string> = {
+    Overweight: 'bg-green-100 text-green-700',
+    Neutral: 'bg-gray-100 text-gray-600',
+    Underweight: 'bg-red-100 text-red-600'
+  };
+  const stanceIcon: Record<string, React.ReactNode> = {
+    Overweight: <TrendingUp size={11} />,
+    Neutral: <Minus size={11} />,
+    Underweight: <TrendingDown size={11} />
+  };
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-3 gap-3">
+        {macroStats.map(s => (
+          <div key={s.label} className="bg-[#F8FAFC] border border-border rounded-lg p-3 text-center">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">{s.label}</div>
+            <div className="text-sm font-bold text-gray-800 mt-0.5">{s.value}</div>
+            <div className="text-[10px] text-gray-400">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Asset Class Views</div>
+        <div className="space-y-2">
+          {RESEARCH_ASSET_CLASSES.map(a => (
+            <div key={a.name} className="flex items-center gap-3 p-2.5 border border-border rounded-lg">
+              <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${stanceStyle[a.stance]}`}>
+                {stanceIcon[a.stance]}{a.stance}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-gray-800">{a.name}</div>
+                <div className="text-[10px] text-gray-400">{a.note}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="bg-[#FFF7ED] border border-orange-100 rounded-lg p-4">
+        <div className="text-[11px] font-bold text-orange-700 uppercase tracking-widest mb-2">HNW Guidance</div>
+        <div className="space-y-1">
+          {['Prioritize CRT, DAF, or direct indexing for CA clients at ~54% marginal rate',
+            'Systematic NVDA diversification via exchange fund or protective collar',
+            'Estate exemption sunset risk in 2026 — act before year-end'].map(tip => (
+            <div key={tip} className="flex items-start gap-2 text-xs text-orange-800">
+              <span className="mt-0.5 shrink-0">→</span><span>{tip}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ComplianceDocView = () => (
+  <div className="space-y-3">
+    {COMPLIANCE_RULES_DETAILED.map(rule => (
+      <div key={rule.id} className="border border-border rounded-xl p-4 hover:border-gray-300 transition-colors">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${rule.badgeColor}`}>{rule.badge}</span>
+            <span className="text-sm font-bold text-gray-800">{rule.title}</span>
+          </div>
+          <a
+            href={rule.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="flex items-center gap-1 text-[11px] text-[#003087] font-medium hover:underline shrink-0"
+          >
+            View Rule <ExternalLink size={11} />
+          </a>
+        </div>
+        <p className="text-xs text-gray-600 leading-relaxed mb-2">{rule.summary}</p>
+        <div className="text-[10px] text-gray-400 flex items-center gap-1">
+          <span className="font-medium">Trigger:</span> {rule.trigger}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const DocumentDetailPanel = ({ type, uploadedDoc, isProcessing, onUpload, onClose, advisorNotes, selectedClient }: any) => {
+   const fileInputRef = useRef<HTMLInputElement>(null);
+
+   const renderContent = () => {
+      if (uploadedDoc) {
+         return (
+            <pre className="text-[11px] text-gray-700 leading-relaxed whitespace-pre-wrap font-mono bg-[#F8FAFC] border border-border rounded-lg p-4">
+               {uploadedDoc.text}
+            </pre>
+         );
+      }
+      if (type.id === 'portfolio') return <PortfolioDocView client={selectedClient} />;
+      if (type.id === 'meeting') return <MeetingDocView advisorNotes={advisorNotes} />;
+      if (type.id === 'research') return <ResearchDocView />;
+      if (type.id === 'compliance') return <ComplianceDocView />;
+      return null;
    };
 
    return (
-      <div
-         className={`border rounded-md p-2.5 mb-2 text-xs transition-all cursor-pointer ${
-           isDragOver
-             ? 'border-[#003087] bg-[#EEF2FF] border-solid scale-[1.01]'
-             : doc
-             ? 'border-blue-200 bg-[#EFF6FF] border-solid'
-             : 'border-dashed border-[#CBD5E1] bg-[#F8FAFC]'
-         }`}
-         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-         onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true); }}
-         onDragLeave={() => setIsDragOver(false)}
-         onDrop={handleDrop}
-         onClick={() => !doc && !isProcessing && fileInputRef.current?.click()}
-      >
-         <div className="flex justify-between font-semibold text-gray-700">
-            <span className={doc ? "text-blue-700" : (isProcessing ? "opacity-50" : "opacity-75")}>{type.name}</span>
-            {doc ? (
-               <span className="text-green-600">✓</span>
-            ) : (
-               <button
-                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                  disabled={isProcessing}
-                  className="text-blue-500 hover:text-blue-700 disabled:opacity-50 cursor-pointer"
-               >
-                  +
+      <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
+         <div
+            className="mt-[64px] mr-0 w-[440px] bg-white border-l border-border shadow-xl h-[calc(100vh-64px)] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+         >
+            <div className="p-4 border-b border-border flex items-start justify-between shrink-0">
+               <div>
+                  <div className="font-bold text-sm text-gray-800">{type.name}</div>
+                  <div className="text-[10px] text-green-600 mt-0.5 flex items-center gap-1">
+                     <CheckCircle2 size={10} />
+                     {uploadedDoc ? `Overridden: ${uploadedDoc.filename}` : type.syncLabel}
+                  </div>
+               </div>
+               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 mt-0.5">
+                  <X size={16} />
                </button>
-            )}
-         </div>
-         <div className="mt-1 flex items-center justify-between">
-            {doc ? (
-               <>
-                  <span className="text-[10px] text-blue-500 truncate" title={doc.filename}>{doc.filename}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                    className="text-[9px] text-[#003087] hover:underline"
-                  >
-                    Replace
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+               {renderContent()}
+            </div>
+
+            <div className="p-4 border-t border-border bg-[#F8F9FB] shrink-0">
+               <p className="text-[10px] text-gray-400 mb-2">Upload a PDF to override synced content for this session.</p>
+               <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessing}
+                  className="w-full flex items-center justify-center gap-2 border border-dashed border-[#003087]/30 text-[#003087] text-xs font-medium py-2 px-3 rounded-lg hover:bg-[#EEF2FF] transition-colors disabled:opacity-50"
+               >
+                  <Upload size={13} />
+                  {isProcessing ? 'Processing...' : uploadedDoc ? 'Replace PDF' : 'Upload PDF to override'}
+               </button>
+               {uploadedDoc && (
+                  <button onClick={() => onUpload(null)} className="w-full mt-2 text-[10px] text-gray-400 hover:text-red-500 transition-colors">
+                     Remove override — revert to synced data
                   </button>
-               </>
-            ) : (
-               <span className="text-[10px] text-gray-400 italic">
-                 {isProcessing ? "Processing..." : isDragOver ? "Drop PDF here" : "Click or drag PDF here"}
-               </span>
-            )}
+               )}
+               <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef}
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) onUpload(file); e.target.value = ''; }}
+               />
+            </div>
          </div>
-         <input
-            type="file"
-            accept="application/pdf"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={(e) => {
-               const file = e.target.files?.[0];
-               if (file) onUpload(file);
-               e.target.value = '';
-            }}
-         />
       </div>
    );
 };
@@ -547,6 +984,64 @@ const AdvisorPanel = ({ clients, selectedClientId, onSelectClient, onClose }: an
   );
 };
 
+const NotesModal = ({ clientName, notes, noteInput, onNoteChange, onSave, onDelete, onClose }: any) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { textareaRef.current?.focus(); }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-[480px] max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-border flex items-center justify-between">
+          <div>
+            <div className="font-bold text-sm text-gray-800">Update Client Notes</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">{clientName} — preferences, habits, meeting updates</div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+        </div>
+
+        <div className="p-5 flex flex-col gap-3">
+          <textarea
+            ref={textareaRef}
+            value={noteInput}
+            onChange={(e) => onNoteChange(e.target.value)}
+            placeholder={`e.g. "Client prefers avoiding tech sector above 40%"\n"Apr 24 meeting: discussed rebalancing NVDA into private credit"\n"Client is risk-averse about alternatives despite profile"`}
+            className="w-full border border-border rounded-xl px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 outline-none focus:border-[#003087] resize-none leading-relaxed"
+            rows={4}
+            onKeyDown={(e) => { if (e.key === 'Enter' && e.metaKey) onSave(); }}
+          />
+          <button
+            onClick={onSave}
+            disabled={!noteInput.trim()}
+            className="w-full bg-[#003087] text-white text-xs font-semibold py-2.5 rounded-lg hover:bg-[#002070] transition-colors disabled:opacity-40"
+          >
+            Save Note — will be included in all future AI responses
+          </button>
+          <p className="text-[10px] text-gray-400 text-center">⌘ + Enter to save</p>
+        </div>
+
+        {notes.length > 0 && (
+          <div className="px-5 pb-5 border-t border-border pt-4">
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Saved Notes</div>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              {notes.map((note: string, i: number) => (
+                <div key={i} className="flex items-start gap-2 bg-[#F8FAFC] rounded-lg p-2.5">
+                  <span className="text-[11px] text-gray-700 flex-1 leading-relaxed">{note}</span>
+                  <button onClick={() => onDelete(i)} className="text-gray-300 hover:text-red-500 transition-colors shrink-0 mt-0.5">
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // === MAIN APP COMPONENT ===
 export default function App() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -558,6 +1053,10 @@ export default function App() {
   const [processingDocs, setProcessingDocs] = useState<Record<string, boolean>>({});
   const [selectedClientId, setSelectedClientId] = useState<string>('margaret');
   const [showAdvisorPanel, setShowAdvisorPanel] = useState(false);
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
+  const [clientNotes, setClientNotes] = useState<Record<string, string[]>>({});
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [noteInput, setNoteInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -612,8 +1111,11 @@ export default function App() {
     }
   };
 
-  const handleUpload = async (docTypeId: string, file: File) => {
-     if (!file) return;
+  const handleUpload = async (docTypeId: string, file: File | null) => {
+     if (!file) {
+        setUploadedDocs(prev => { const next = { ...prev }; delete next[docTypeId]; return next; });
+        return;
+     }
      try {
         setProcessingDocs(prev => ({ ...prev, [docTypeId]: true }));
         const pdfjs = await loadPdfJs();
@@ -650,7 +1152,7 @@ export default function App() {
      setIsThinking(true);
 
      try {
-        const responseData = await askAdvisorIQ(query, uploadedDocs, selectedClient);
+        const responseData = await askAdvisorIQ(query, uploadedDocs, selectedClient, clientNotes[selectedClientId] || []);
         const assistantMsg: ChatMsg = {
            role: 'assistant',
            content: responseData.answer || "No specific answer provided.",
@@ -687,7 +1189,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           <div className="font-bold text-[18px] text-[#003087]">LPL Financial <span className="text-[#C9A84C] ml-1 font-medium">AdvisorIQ</span></div>
           <div className="h-4 w-[1px] bg-gray-300"></div>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">Powered by LPL Research</div>
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider">Powered by LPL Research · Anthropic</div>
         </div>
         <button
           onClick={() => setShowAdvisorPanel(prev => !prev)}
@@ -710,6 +1212,47 @@ export default function App() {
         />
       )}
 
+      {showNotesModal && (
+        <NotesModal
+          clientName={selectedClient.name}
+          notes={clientNotes[selectedClientId] || []}
+          noteInput={noteInput}
+          onNoteChange={setNoteInput}
+          onSave={() => {
+            if (!noteInput.trim()) return;
+            const ts = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const entry = `[${ts}] ${noteInput.trim()}`;
+            setClientNotes(prev => ({
+              ...prev,
+              [selectedClientId]: [...(prev[selectedClientId] || []), entry]
+            }));
+            setNoteInput("");
+          }}
+          onDelete={(idx: number) => {
+            setClientNotes(prev => ({
+              ...prev,
+              [selectedClientId]: (prev[selectedClientId] || []).filter((_: string, i: number) => i !== idx)
+            }));
+          }}
+          onClose={() => { setShowNotesModal(false); setNoteInput(""); }}
+        />
+      )}
+
+      {openDocId && (() => {
+        const type = CONFIG.DOCUMENT_TYPES.find(t => t.id === openDocId)!;
+        return (
+          <DocumentDetailPanel
+            type={type}
+            uploadedDoc={uploadedDocs[openDocId]}
+            isProcessing={processingDocs[openDocId]}
+            onUpload={(file: File | null) => handleUpload(openDocId, file)}
+            onClose={() => setOpenDocId(null)}
+            advisorNotes={clientNotes[selectedClientId] || []}
+            selectedClient={selectedClient}
+          />
+        );
+      })()}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-[280px] bg-white border-r border-border flex flex-col overflow-y-auto shrink-0 z-10">
@@ -729,11 +1272,10 @@ export default function App() {
             <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Document Library</h2>
             {CONFIG.DOCUMENT_TYPES.map(type => (
               <DocumentSlot
-                 key={type.id}
-                 type={type}
-                 doc={uploadedDocs[type.id]}
-                 onUpload={(file: File) => handleUpload(type.id, file)}
-                 isProcessing={processingDocs[type.id]}
+                key={type.id}
+                type={type}
+                uploadedDoc={uploadedDocs[type.id]}
+                onClick={() => setOpenDocId(type.id)}
               />
             ))}
           </div>
@@ -797,6 +1339,25 @@ export default function App() {
                      <div className="text-[10px] text-gray-400">Next Meeting</div>
                      <div className="text-xs font-semibold text-gray-800">{selectedClient.nextMeeting}</div>
                   </div>
+                  <div className="mt-2 text-[10px] text-gray-400">Pulled from ClientWorks</div>
+
+                  {/* Advisor notes preview */}
+                  {(clientNotes[selectedClientId] || []).length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Advisor Notes ({(clientNotes[selectedClientId] || []).length})</div>
+                      {(clientNotes[selectedClientId] || []).slice(-2).map((note: string, i: number) => (
+                        <div key={i} className="text-[10px] text-gray-500 leading-relaxed truncate">{note}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setShowNotesModal(true)}
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 border border-dashed border-[#003087]/30 text-[#003087] text-[10px] font-semibold py-1.5 rounded-lg hover:bg-[#EEF2FF] transition-colors"
+                  >
+                    <PenLine size={11} />
+                    Update preferences / meeting notes
+                  </button>
                </div>
             </div>
           </div>
