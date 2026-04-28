@@ -1,15 +1,28 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { FileText, Shield, TrendingUp, Info, Plus, MessageSquare, Trash2, X, Users, ChevronRight, CheckCircle2, Upload, PenLine, ExternalLink, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
+import { FileText, Shield, TrendingUp, Info, Plus, MessageSquare, Trash2, X, Users, ChevronRight, CheckCircle2, Upload, PenLine, ExternalLink, TrendingDown, Minus, AlertTriangle, Database, Building2, BarChart2, Mic } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+
+// === DATE HELPERS ===
+const _now = new Date();
+const _fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const _fmtTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+const TODAY = _fmt(_now);
+const NOW_ET = `${TODAY} ${_fmtTime(_now)} ET`;
+const _tomorrow = new Date(_now); _tomorrow.setDate(_tomorrow.getDate() + 1);
+const TOMORROW_DATE = _fmt(_tomorrow);
 
 // === CONFIG ===
 const CONFIG = {
   DOCUMENT_TYPES: [
-    { id: 'portfolio', name: 'Client Portfolio', icon: TrendingUp, syncLabel: 'Synced from ClientWorks · Apr 24, 2026' },
-    { id: 'meeting', name: 'Meeting History', icon: FileText, syncLabel: '3 sessions synced · Last: Mar 15, 2026' },
-    { id: 'research', name: 'LPL Research Report', icon: Info, syncLabel: '2026 Outlook loaded · LPL Research' },
-    { id: 'compliance', name: 'Compliance / Regulatory Document', icon: Shield, syncLabel: 'Auto-updated · FINRA compliant' }
+    { id: 'portfolio',   name: 'Client Portfolio',              icon: TrendingUp, syncLabel: `Synced from ClientWorks · ${TODAY}` },
+    { id: 'meeting',     name: 'Meeting History',               icon: FileText,   syncLabel: '2 sessions synced · Last: Feb 12, 2026' },
+    { id: 'research',    name: 'LPL Research Report',           icon: Info,       syncLabel: '2026 Outlook loaded · LPL Research' },
+    { id: 'compliance',  name: 'Compliance Reference',          icon: Shield,     syncLabel: 'Auto-updated · FINRA compliant' },
+    { id: 'salesforce',  name: 'Salesforce CRM',                icon: Database,   syncLabel: `Synced from Salesforce · ${TODAY}` },
+    { id: 'wealth',      name: 'Wealth.com Estate',             icon: Building2,  syncLabel: 'Synced from Wealth.com · Apr 20, 2026' },
+    { id: 'factset',     name: 'FactSet Market Data',           icon: BarChart2,  syncLabel: `Live feed · ${NOW_ET}` },
+    { id: 'jump',        name: 'Jump Meeting Notes',            icon: Mic,        syncLabel: 'Last sync: Feb 12, 2026 meeting' }
   ],
   systemPromptBase: "You are AdvisorIQ, an AI assistant for LPL Financial advisors. You have access to data automatically synced from ClientWorks (client portfolio and meeting history), LPL Research 2026 Outlook, and FINRA/SEC compliance rules. Answer questions by synthesizing information across all available data sources. ALWAYS cite at least two data sources in every response, and end your answer with citation tags like [ClientWorks] [LPL Research 2026] [FINRA Rule 2111] as applicable. If the query involves investment recommendations, suitability, or tax advice, append a compliance flag noting relevant FINRA or SEC considerations. IMPORTANT: You must return the response as a JSON object with EXACTLY the following format, and do not wrap it in markdown block quotes. Format: { \"answer\": \"string containing your response in plain advisor-friendly language using markdown for formatting (use **bold** for headers, - for lists). End with citation tags like [ClientWorks] [LPL Research 2026] [FINRA Rule 2111]\", \"sources\": [\"ClientWorks\", \"LPL Research 2026\"], \"complianceFlags\": [\"string\"], \"dataSourcesUsed\": [\"string\"], \"suggestedQuestions\": [\"string\", \"string\", \"string\"] }. For suggestedQuestions, generate 3 concise follow-up questions an advisor would naturally ask next."
 };
@@ -290,6 +303,27 @@ const RESEARCH_ASSET_CLASSES = [
   { name: 'Speculative Tech', stance: 'Underweight', note: 'AI concentration premium at historical highs' }
 ];
 
+const CITATION_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  'CW':    { bg: '#003087', text: '#ffffff', label: 'ClientWorks' },
+  'MTG':   { bg: '#0F766E', text: '#ffffff', label: 'Meeting History' },
+  'LPL-R': { bg: '#C9A84C', text: '#ffffff', label: 'LPL Research' },
+  'Compl': { bg: '#DC2626', text: '#ffffff', label: 'Compliance Rules' },
+  'SF':    { bg: '#1D4ED8', text: '#ffffff', label: 'Salesforce CRM' },
+  'W.com': { bg: '#7C3AED', text: '#ffffff', label: 'Wealth.com Estate' },
+  'FS':    { bg: '#15803D', text: '#ffffff', label: 'FactSet Market Data' },
+  'Jump':  { bg: '#EA580C', text: '#ffffff', label: 'Jump Meeting Notes' },
+};
+
+const AUDIT_ROWS = [
+  { id: 'A001', date: TODAY,          client: 'Margaret Chen',   advisor: 'J. Whitfield', type: 'NVDA Concentration — Rebalance Decision', tags: ['NVDA', 'Concentration', 'CA'],   isLive: true,  status: 'pending'   as const },
+  { id: 'A002', date: 'Mar 15, 2026', client: 'Robert Martinez', advisor: 'J. Whitfield', type: 'IRA Rollover Strategy',                   tags: ['IRA', 'Rollover'],              isLive: false, status: 'approved'  as const },
+  { id: 'A003', date: 'Feb 22, 2026', client: 'Sarah Johnson',   advisor: 'J. Whitfield', type: 'Tech Sector Concentration (55%)',           tags: ['Tech', 'Concentration'],        isLive: false, status: 'overridden' as const },
+  { id: 'A004', date: 'Feb 8, 2026',  client: 'Margaret Chen',   advisor: 'J. Whitfield', type: 'CRT Recommendation Review',                 tags: ['CRT', 'Charitable'],            isLive: false, status: 'approved'  as const },
+  { id: 'A005', date: 'Jan 12, 2026', client: 'David Park',      advisor: 'J. Whitfield', type: 'Real Estate Concentration (42%)',           tags: ['Real Estate', 'Concentration'], isLive: false, status: 'approved'  as const },
+  { id: 'A006', date: 'Dec 10, 2025', client: 'Robert Martinez', advisor: 'J. Whitfield', type: 'IRA Rollover to Managed Account',           tags: ['IRA', 'Managed'],              isLive: false, status: 'approved'  as const },
+  { id: 'A007', date: 'Nov 18, 2025', client: 'Margaret Chen',   advisor: 'J. Whitfield', type: 'Private Credit Allocation Review',          tags: ['Private Credit', 'Alt'],       isLive: false, status: 'approved'  as const },
+];
+
 const mockResearchData = {
   views: "Favor alternatives and private credit for 2026. 10-year Treasury expected to remain in 3.75-4.25% range. Policy-driven volatility expected."
 };
@@ -310,6 +344,7 @@ interface ChatMsg {
   complianceFlags?: string[];
   suggestedQuestions?: string[];
   timestamp: number;
+  specialType?: 'meeting-brief' | 'compliance-gate';
 }
 
 interface ChatSession {
@@ -498,6 +533,609 @@ const askAdvisorIQ = async (inputText: string, uploadedDocs: any, clientData: an
       throw new Error("No valid AI API Configuration found.");
    }
 };
+
+// === CITATION PIN ===
+const CitationPin: React.FC<{ code: string; onClick?: () => void }> = ({ code, onClick }) => {
+  const [show, setShow] = useState(false);
+  const c = CITATION_COLORS[code] ?? { bg: '#64748B', text: '#ffffff', label: code };
+  return (
+    <span
+      className={`relative inline-flex items-center mx-0.5 align-middle ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={onClick}
+    >
+      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded leading-none" style={{ backgroundColor: c.bg, color: c.text }}>
+        {code}
+      </span>
+      {show && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-gray-900 text-white text-[10px] px-2 py-1 rounded z-50 pointer-events-none shadow-lg">
+          {c.label}
+        </span>
+      )}
+    </span>
+  );
+};
+
+// === MEETING BRIEF ===
+const MeetingBriefContent = ({ onNvdaClick, client }: { onNvdaClick: () => void; client: any }) => {
+  const openItems = [
+    { text: 'CRT vs DAF comparison',       committed: 'Feb 19, 2026', overdue: 67, sources: ['MTG', 'SF'] },
+    { text: 'LPL private credit research', committed: 'Mar 1, 2026',  overdue: 57, sources: ['MTG', 'LPL-R'] },
+    { text: 'Estate attorney referral',    committed: 'Mar 15, 2026', overdue: 43, sources: ['W.com', 'SF'] },
+  ];
+  const lastSessionNotes = [
+    { note: 'NVDA emotional attachment — client cited founder story as reason to hold', src: 'Jump' },
+    { note: 'Exchange fund structure introduced — client receptive, wants modeling', src: 'LPL-R' },
+    { note: 'CRT vs DAF comparison requested — "I\'d like a side-by-side"', src: 'MTG' },
+    { note: 'Private credit interest: targets 5–7% yield without selling NVDA', src: 'LPL-R' },
+    { note: 'Life insurance expiry flagged — aware policy expires Q3 2027', src: 'W.com' },
+  ];
+  const agenda = [
+    { item: 'Present CRT vs DAF side-by-side comparison (overdue)',         sources: ['LPL-R', 'W.com'] },
+    { item: 'LPL private credit fund options — present 3 vehicles',          sources: ['LPL-R'] },
+    { item: 'Estate attorney introduction — 2019 will needs updating',        sources: ['W.com', 'SF'] },
+    { item: 'Life insurance review — $1M term expires Q3 2027',              sources: ['W.com'] },
+    { item: 'RSU tax positioning — $800K vested Jan 2026, no plan yet',      sources: ['FS', 'CW'] },
+  ];
+  return (
+    <div className="bg-white border border-border rounded-xl text-[13px] leading-relaxed max-w-[90%] overflow-hidden shadow-sm">
+      <div className="bg-[#003087] text-white px-5 py-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="font-bold text-base">Meeting Brief — {client.name}</div>
+            <div className="text-[11px] text-blue-200 mt-0.5">{TOMORROW_DATE} · 2:00 PM · In-person · Palo Alto Office</div>
+          </div>
+          <div className="text-right text-[10px] text-blue-200 shrink-0 ml-4">
+            <div>Prepared by AdvisorIQ</div>
+            <div>8 data sources</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-5">
+        {/* 1 — Snapshot */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Quick Snapshot</div>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            {[
+              { label: 'Total AUM',    value: client.aum,           src: 'CW'  },
+              { label: 'Risk Profile', value: client.riskProfile,   src: 'CW'  },
+              { label: 'Tax Rate',     value: client.marginalTaxRate + ' (CA)', src: 'CW' },
+              { label: 'Open Items',   value: '3 overdue',          src: 'SF'  },
+            ].map(item => (
+              <div key={item.label} className="bg-[#F8FAFC] border border-border rounded-lg p-2.5 flex items-center justify-between">
+                <div>
+                  <div className="text-[9px] text-gray-400">{item.label}</div>
+                  <div className="text-xs font-bold text-gray-800">{item.value}</div>
+                </div>
+                <CitationPin code={item.src} />
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg p-2.5">
+            <AlertTriangle size={13} className="text-red-500 shrink-0" />
+            <span className="text-xs text-red-700 font-medium">NVDA concentration: {client.concentration} ($1.68M)</span>
+            <CitationPin code="CW" onClick={onNvdaClick} />
+            <CitationPin code="Compl" onClick={onNvdaClick} />
+            <button onClick={onNvdaClick} className="text-[10px] text-red-500 ml-auto underline hover:text-red-700">View detail →</button>
+          </div>
+        </div>
+
+        {/* 2 — Open items */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Open Action Items <span className="text-red-500">({openItems.length} overdue)</span>
+          </div>
+          <div className="space-y-2">
+            {openItems.map((item, i) => (
+              <div key={i} className="flex items-start gap-3 border border-red-100 bg-red-50 rounded-lg p-3">
+                <AlertTriangle size={12} className="text-red-400 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-gray-800">{item.text}</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">Committed {item.committed}</div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">+{item.overdue}d</span>
+                  {item.sources.map(s => <CitationPin key={s} code={s} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 3 — Last session */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+            Last Session — Feb 12, 2026
+            <CitationPin code="MTG" /><CitationPin code="Jump" />
+          </div>
+          <div className="border border-border rounded-xl p-3 space-y-2">
+            <div className="text-[10px] text-gray-400">75 min · In-person · Palo Alto</div>
+            <div className="space-y-1.5">
+              {lastSessionNotes.map((item, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                  <span className="mt-1 text-gray-300 text-[8px]">●</span>
+                  <span className="flex-1">{item.note}</span>
+                  <CitationPin code={item.src} />
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 mt-1">
+              <AlertTriangle size={11} className="shrink-0" />
+              Spouse (David Chen) was NOT present — expected at upcoming meeting
+              <CitationPin code="Jump" />
+            </div>
+          </div>
+        </div>
+
+        {/* 4 — Agenda */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Recommended Agenda</div>
+          <div className="space-y-1.5">
+            {agenda.map((a, i) => (
+              <div key={i} className="flex items-center gap-2 p-2.5 bg-[#F8FAFC] border border-border rounded-lg">
+                <span className="text-[10px] font-bold text-[#003087] w-4 shrink-0">{i + 1}.</span>
+                <span className="text-xs text-gray-700 flex-1">{a.item}</span>
+                <div className="flex gap-0.5 shrink-0">{a.sources.map(s => <CitationPin key={s} code={s} />)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 5 — Compliance triggers */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Compliance Triggers</div>
+          <div className="space-y-1.5">
+            {[
+              { rule: 'NVDA >20% single-stock — annual acknowledgment required' },
+              { rule: 'CA CCR §260.218 — suitability documentation needed' },
+              { rule: 'FINRA Rule 2111 — concentrated position disclosure' },
+            ].map((c, i) => (
+              <div key={i} className="flex items-center gap-2 p-2 border border-amber-100 bg-amber-50 rounded-lg">
+                <AlertTriangle size={11} className="text-amber-500 shrink-0" />
+                <span className="text-[11px] text-amber-800 flex-1">{c.rule}</span>
+                <CitationPin code="Compl" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5 py-3 border-t border-border bg-[#F8F9FB] text-[10px] text-gray-400 flex items-center gap-2">
+        <CheckCircle2 size={11} className="text-green-500 shrink-0" />
+        8 systems consulted · 2.4s · 23 citations · $0.027 query cost
+      </div>
+    </div>
+  );
+};
+
+// === OVERRIDE MODAL ===
+const OverrideModal: React.FC<{
+  onSubmit: (data: { category: string; rationale: string }) => void;
+  onClose: () => void;
+}> = ({ onSubmit, onClose }) => {
+  const [category, setCategory] = useState('');
+  const [rationale, setRationale] = useState('');
+  const [clientAck, setClientAck] = useState<'aware' | 'pending' | ''>('');
+
+  const CATEGORIES = [
+    'Client preference / emotional attachment',
+    'Tax loss harvesting in progress',
+    'Alternative strategy already in motion',
+    'Market timing consideration',
+    'Supervisor-approved exception',
+  ];
+
+  const canSubmit = category && rationale.trim().length >= 20 && clientAck;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-border flex items-start justify-between">
+          <div>
+            <div className="font-bold text-sm text-gray-800">Override Recommendation</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">This action will be logged to the supervisor audit trail</div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={16} /></button>
+        </div>
+
+        <div className="p-5 space-y-4 overflow-y-auto">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Override Category</label>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              className="w-full border border-border rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-[#003087] bg-white"
+            >
+              <option value="">Select category...</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Override Rationale <span className="font-normal text-gray-400">(min 20 characters)</span>
+            </label>
+            <textarea
+              value={rationale}
+              onChange={e => setRationale(e.target.value)}
+              placeholder="Explain the reason for overriding this recommendation..."
+              className="w-full border border-border rounded-xl px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 outline-none focus:border-[#003087] resize-none leading-relaxed"
+              rows={4}
+            />
+            <div className={`text-[10px] mt-1 ${rationale.trim().length >= 20 ? 'text-green-600' : 'text-gray-400'}`}>
+              {rationale.trim().length} / 20 min characters
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-2">Client Acknowledgment</label>
+            <div className="space-y-2">
+              {([
+                { value: 'aware',   label: 'Client is aware of this override and agrees with the decision' },
+                { value: 'pending', label: 'Supervisor approval required — supervisor has been notified' },
+              ] as const).map(opt => (
+                <label key={opt.value} className="flex items-start gap-2.5 cursor-pointer">
+                  <input type="radio" name="clientAck" value={opt.value} checked={clientAck === opt.value} onChange={() => setClientAck(opt.value)} className="mt-0.5" />
+                  <span className="text-xs text-gray-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 border-t border-border flex gap-3">
+          <button onClick={onClose} className="flex-1 border border-border text-gray-600 text-sm py-2.5 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+          <button
+            onClick={() => canSubmit && onSubmit({ category, rationale: rationale.trim() })}
+            disabled={!canSubmit}
+            className="flex-1 bg-amber-600 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Submit Override
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// === COMPLIANCE GATE ===
+const ComplianceGateContent: React.FC<{
+  acks: boolean[];
+  exported: boolean;
+  timestamp: string | null;
+  recommendationStatus: 'accepted' | 'overridden' | null;
+  overrideData: { category: string; rationale: string; timestamp: string } | null;
+  onAck: (idx: number, val: boolean) => void;
+  onExport: () => void;
+  onAccept: () => void;
+  onShowOverride: () => void;
+}> = ({ acks, exported, timestamp, recommendationStatus, overrideData, onAck, onExport, onAccept, onShowOverride }) => {
+  const allAcked = acks.every(Boolean);
+  const isOverridden = recommendationStatus === 'overridden';
+
+  const triggeredRules = [
+    { badge: 'FINRA', color: 'bg-blue-100 text-blue-700',    title: 'Rule 2111 — Suitability',        note: 'Concentrated equity recommendation requires documented suitability review.' },
+    { badge: 'CA',    color: 'bg-yellow-100 text-yellow-700', title: 'CCR §260.218 — State Fiduciary', note: 'California-domiciled client — state standard may exceed federal requirements.' },
+    { badge: 'LPL',   color: 'bg-red-100 text-red-700',      title: 'Concentration Policy (>20%)',     note: 'NVDA at 40% requires annual documented client acknowledgment of concentration risk.' },
+  ];
+
+  const ackLabels = [
+    'I confirm this recommendation has been reviewed for suitability under FINRA Rule 2111.',
+    'I acknowledge California CCR §260.218 suitability requirements have been considered.',
+    'I certify NVDA concentration risk (40%) has been documented and disclosed to the client.',
+  ];
+
+  return (
+    <div className="bg-white border border-border rounded-xl text-[13px] leading-relaxed max-w-[90%] overflow-hidden shadow-sm">
+      <div className="bg-amber-50 border-b border-amber-200 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+          <div>
+            <div className="font-bold text-sm text-amber-900">Compliance Gate — Action Required</div>
+            <div className="text-[11px] text-amber-700 mt-0.5">3 compliance rules triggered. Acknowledge all items before exporting.</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-5">
+        {/* Triggered rules */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Triggered Rules</div>
+          <div className="space-y-2">
+            {triggeredRules.map((r, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 border border-amber-100 bg-amber-50/60 rounded-lg">
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded shrink-0 mt-0.5 ${r.color}`}>{r.badge}</span>
+                <div>
+                  <div className="text-xs font-semibold text-gray-800">{r.title}</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">{r.note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* AI Recommendation */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+            AI-Generated Recommendation
+            <CitationPin code="CW" /><CitationPin code="LPL-R" /><CitationPin code="FS" />
+            {isOverridden && <span className="ml-auto text-[9px] bg-red-500 text-white px-2 py-0.5 rounded font-bold uppercase">Overridden</span>}
+            {recommendationStatus === 'accepted' && <span className="ml-auto text-[9px] bg-green-600 text-white px-2 py-0.5 rounded font-bold uppercase">Accepted</span>}
+          </div>
+          <div className={`border rounded-xl p-4 space-y-2.5 text-xs text-gray-700 leading-relaxed transition-opacity ${isOverridden ? 'border-red-200 opacity-50' : 'border-border'}`}>
+            {[
+              { label: 'Option 1 — Exchange Fund', body: 'Transfer NVDA shares into an SEC-registered exchange fund. Achieves diversification without triggering a taxable event. Estimated lock-up: 7 years.', srcs: ['LPL-R', 'Compl'] },
+              { label: 'Option 2 — Harvest Fixed Income Losses', body: 'Offset near-term gains by harvesting losses in the fixed income sleeve (~$840K notional). Estimated net tax savings ~$45K this calendar year.', srcs: ['CW', 'FS'] },
+              { label: 'Option 3 — Phased Sale', body: 'Sell $200K of NVDA annually to remain within the 20% federal long-term cap gains bracket. Reduces concentration to <20% over 4–5 years.', srcs: ['CW', 'LPL-R'] },
+              { label: 'Option 4 — Protective Collar', body: 'Buy puts + sell covered calls on NVDA to limit downside while preserving upside. Appropriate if client declines all sale strategies.', srcs: ['LPL-R'] },
+            ].map((opt, i) => (
+              <p key={i} className={isOverridden ? 'line-through' : ''}>
+                <strong>{opt.label}:</strong> {opt.body}
+                {opt.srcs.map(s => <CitationPin key={s} code={s} />)}
+              </p>
+            ))}
+            <div className={`mt-1 bg-[#F8FAFC] border border-border rounded-lg p-2.5 text-[11px] text-gray-500 ${isOverridden ? 'line-through' : ''}`}>
+              ⚠ Estimated tax at full liquidation: <strong className="text-red-700">~$647,535</strong> — 54% blended (Fed 20% LT + CA 13.3% + NIIT 3.8%)
+              <CitationPin code="FS" /><CitationPin code="Compl" />
+            </div>
+          </div>
+
+          {isOverridden && overrideData && (
+            <div className="mt-2 border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-1">
+              <div className="text-[10px] font-bold text-amber-800 uppercase tracking-widest">Override Rationale — Logged to Audit</div>
+              <div className="text-xs text-amber-800"><strong>Category:</strong> {overrideData.category}</div>
+              <div className="text-xs text-amber-700 italic">"{overrideData.rationale}"</div>
+              <div className="text-[10px] text-amber-500">{overrideData.timestamp}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Action row */}
+        {!recommendationStatus ? (
+          <div className="flex gap-2">
+            <button onClick={onAccept} className="flex-1 bg-green-600 text-white text-xs font-semibold py-2.5 rounded-lg hover:bg-green-700 transition-colors">✓ Accept</button>
+            <button className="flex-1 border border-border text-gray-600 text-xs font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors">Modify</button>
+            <button onClick={onShowOverride} className="flex-1 border border-amber-300 text-amber-700 text-xs font-semibold py-2.5 rounded-lg hover:bg-amber-50 transition-colors">Override</button>
+          </div>
+        ) : (
+          <div className={`flex items-center gap-2 rounded-lg p-3 ${recommendationStatus === 'accepted' ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+            {recommendationStatus === 'accepted'
+              ? <CheckCircle2 size={14} className="text-green-600 shrink-0" />
+              : <AlertTriangle size={14} className="text-amber-600 shrink-0" />}
+            <span className={`text-xs font-semibold ${recommendationStatus === 'accepted' ? 'text-green-800' : 'text-amber-800'}`}>
+              {recommendationStatus === 'accepted' ? 'Recommendation Accepted' : 'Recommendation Overridden — Logged to Supervisor Audit'}
+            </span>
+          </div>
+        )}
+
+        {/* Acknowledgment checkboxes */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Required Acknowledgments</div>
+          <div className="space-y-2">
+            {ackLabels.map((label, i) => (
+              <label key={i} className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${acks[i] ? 'border-green-200 bg-green-50' : 'border-border hover:bg-gray-50'}`}>
+                <input type="checkbox" checked={acks[i]} onChange={e => onAck(i, e.target.checked)} className="mt-0.5 shrink-0 h-4 w-4 rounded accent-green-600" />
+                <span className={`text-xs leading-relaxed flex-1 ${acks[i] ? 'text-green-800' : 'text-gray-700'}`}>{label}</span>
+                {acks[i] && <CheckCircle2 size={14} className="text-green-500 shrink-0 mt-0.5" />}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Export buttons */}
+        {!exported && (
+          <div className="flex gap-3">
+            <button onClick={onExport} disabled={!allAcked} className="flex-1 bg-[#003087] text-white text-xs font-semibold py-2.5 rounded-lg hover:bg-[#002070] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Export to Supervisor</button>
+            <button disabled={!allAcked} className="flex-1 border border-[#003087] text-[#003087] text-xs font-semibold py-2.5 rounded-lg hover:bg-[#EEF2FF] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Send to Client</button>
+          </div>
+        )}
+
+        {exported && timestamp && (
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+            <CheckCircle2 size={18} className="text-green-600 shrink-0" />
+            <div>
+              <div className="text-xs font-bold text-green-800">Submitted to Supervisor Audit Log</div>
+              <div className="text-[11px] text-green-600 mt-0.5">{timestamp} · Tracking #CHEN-{timestamp.replace(/\D/g, '').slice(-6)}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="px-5 py-3 border-t border-border bg-[#F8F9FB] text-[10px] text-gray-400 flex items-center gap-2">
+        <CheckCircle2 size={11} className="text-green-500 shrink-0" />
+        6 systems consulted · 2.4s · 23 citations · $0.027 query cost
+      </div>
+    </div>
+  );
+};
+
+// === SUPERVISOR VIEW ===
+const SupervisorView = ({ rows, selectedEntry, onSelectEntry, complianceExported, complianceTimestamp, complianceAcks, recommendationStatus, overrideData }: any) => {
+  const getLiveStatus = () => {
+    if (recommendationStatus === 'overridden') return { label: 'Overridden',    cls: 'bg-amber-100 text-amber-700' };
+    if (recommendationStatus === 'accepted')   return { label: 'Accepted',      cls: 'bg-green-100 text-green-700' };
+    if (complianceExported)                    return { label: 'Acknowledged',  cls: 'bg-green-100 text-green-700' };
+    return                                            { label: 'Pending',       cls: 'bg-red-100 text-red-700' };
+  };
+  const getStatus = (row: any) => {
+    if (row.isLive) return getLiveStatus();
+    if (row.status === 'overridden') return { label: 'Overridden', cls: 'bg-amber-100 text-amber-700' };
+    return { label: 'Approved', cls: 'bg-green-100 text-green-700' };
+  };
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-5">
+          <div className="font-bold text-lg text-gray-800">Supervisor Audit Log</div>
+          <div className="text-xs text-gray-400 mt-0.5">All compliance reviews and recommendation events across your book.</div>
+        </div>
+        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+          <div className="grid grid-cols-[110px_1fr_2fr_100px_90px] text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-border px-4 py-3 gap-4">
+            <span>Date</span><span>Client</span><span>Event</span><span>Advisor</span><span>Status</span>
+          </div>
+          {rows.map((row: any) => {
+            const status = getStatus(row);
+            const isSelected = selectedEntry === row.id;
+            return (
+              <button
+                key={row.id}
+                onClick={() => onSelectEntry(isSelected ? null : row.id)}
+                className={`w-full grid grid-cols-[110px_1fr_2fr_100px_90px] items-start px-4 py-3.5 border-b border-border text-left transition-colors gap-4 ${isSelected ? 'bg-[#EEF2FF]' : 'hover:bg-gray-50'}`}
+              >
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <span className="text-xs text-gray-600 leading-none">{row.date}</span>
+                  {row.isLive && <span className="text-[8px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse shrink-0">LIVE</span>}
+                </div>
+                <span className="text-xs font-semibold text-gray-800 pt-0.5">{row.client}</span>
+                <div>
+                  <div className="text-xs text-gray-700">{row.type}</div>
+                  <div className="flex gap-1 mt-1 flex-wrap">
+                    {row.tags.map((t: string) => <span key={t} className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{t}</span>)}
+                  </div>
+                </div>
+                <span className="text-xs text-gray-500 pt-0.5">{row.advisor}</span>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-lg text-center w-fit ${status.cls}`}>{status.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AuditDetailPanel = ({ entryId, rows, complianceExported, complianceTimestamp, complianceAcks, recommendationStatus, overrideData, onClose }: any) => {
+  const row = rows.find((r: any) => r.id === entryId);
+  if (!row) return null;
+
+  const ACK_LABELS = [
+    'FINRA Rule 2111 — Suitability review',
+    'CA CCR §260.218 — State fiduciary standard',
+    'NVDA Concentration (>20%) — Annual acknowledgment',
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
+      <div className="mt-[64px] mr-0 w-[440px] bg-white border-l border-border shadow-xl h-[calc(100vh-64px)] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-4 border-b border-border flex items-start justify-between shrink-0">
+          <div>
+            <div className="font-bold text-sm text-gray-800">{row.type}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">{row.client} · {row.date}</div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 mt-0.5"><X size={16} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {row.isLive ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">LIVE SESSION</span>
+                <span className="text-xs text-gray-400">{TODAY}</span>
+              </div>
+
+              <div>
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Compliance Acknowledgments</div>
+                {ACK_LABELS.map((label, i) => (
+                  <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg mb-1.5 border ${complianceAcks[i] ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                    {complianceAcks[i]
+                      ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
+                      : <div className="h-3.5 w-3.5 rounded-full border-2 border-gray-300 shrink-0" />}
+                    <span className={`text-xs ${complianceAcks[i] ? 'text-green-800' : 'text-gray-400'}`}>{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {recommendationStatus && (
+                <div>
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Recommendation Decision</div>
+                  <div className={`flex items-center gap-2 p-3 rounded-xl border ${recommendationStatus === 'accepted' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                    {recommendationStatus === 'accepted' ? <CheckCircle2 size={14} className="text-green-600" /> : <AlertTriangle size={14} className="text-amber-600" />}
+                    <span className={`text-xs font-semibold ${recommendationStatus === 'accepted' ? 'text-green-800' : 'text-amber-800'}`}>
+                      {recommendationStatus === 'accepted' ? 'Advisor accepted AI recommendation' : 'Advisor submitted override'}
+                    </span>
+                  </div>
+                  {recommendationStatus === 'overridden' && overrideData && (
+                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1">
+                      <div className="text-[10px] font-bold text-amber-800 uppercase tracking-widest">Override Details</div>
+                      <div className="text-xs text-amber-800"><strong>Category:</strong> {overrideData.category}</div>
+                      <div className="text-xs text-amber-700 italic">"{overrideData.rationale}"</div>
+                      <div className="text-[10px] text-amber-500">{overrideData.timestamp}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {complianceExported ? (
+                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+                  <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-green-800">Exported to Audit Log</div>
+                    <div className="text-[11px] text-green-600 mt-0.5">
+                      {complianceTimestamp} · #CHEN-{(complianceTimestamp ?? '').replace(/\D/g, '').slice(-6)}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                  <span className="text-xs text-amber-800">Pending — advisor has not yet exported acknowledgment</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {[{ label: 'Client', value: row.client }, { label: 'Advisor', value: row.advisor }, { label: 'Date', value: row.date }, { label: 'Status', value: row.status === 'approved' ? 'Approved' : 'Overridden' }].map(item => (
+                  <div key={item.label} className="bg-[#F8FAFC] border border-border rounded-lg p-2.5">
+                    <div className="text-[9px] text-gray-400 uppercase tracking-wide">{item.label}</div>
+                    <div className="text-xs font-semibold text-gray-800 mt-0.5">{item.value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className={`flex items-center gap-2 p-3 rounded-xl border ${row.status === 'approved' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                {row.status === 'approved' ? <CheckCircle2 size={14} className="text-green-600" /> : <AlertTriangle size={14} className="text-amber-600" />}
+                <span className={`text-xs font-semibold ${row.status === 'approved' ? 'text-green-800' : 'text-amber-800'}`}>
+                  {row.status === 'approved' ? 'All compliance requirements met and approved' : 'Recommendation override logged to audit trail'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {row.tags.map((t: string) => <span key={t} className="text-[10px] bg-[#EEF2FF] text-[#003087] px-2 py-0.5 rounded font-medium">{t}</span>)}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-border bg-[#F8F9FB] shrink-0 text-center text-[10px] text-gray-400">
+          LPL Supervisor Audit System · All entries are immutable once logged
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// === METRICS STRIP ===
+const MetricsStrip = () => (
+  <div className="px-6 shrink-0 max-w-5xl mx-auto w-full">
+    <div className="border-t border-border pt-2 pb-1 flex items-center justify-center gap-2 flex-wrap">
+      {[
+        { icon: '⚡', label: '2.4s avg response' },
+        { icon: '📚', label: '8 systems' },
+        { icon: '🔗', label: '23 citations / query' },
+        { icon: '💲', label: '$0.027 / query' },
+        { icon: '✓',  label: '99.2% uptime' },
+      ].map((m, i, arr) => (
+        <span key={m.label} className="flex items-center gap-1">
+          <span className="text-[11px] text-gray-400">
+            <span className="mr-0.5">{m.icon}</span>{m.label}
+          </span>
+          {i < arr.length - 1 && <span className="text-gray-200 ml-2">·</span>}
+        </span>
+      ))}
+    </div>
+  </div>
+);
 
 // === UI COMPONENTS ===
 const WelcomeScreen = ({ onSuggestionClick, clientName }: any) => {
@@ -707,19 +1345,20 @@ const PortfolioDocView = ({ client }: any) => {
 const MeetingDocView = ({ advisorNotes }: any) => {
   const sessions = [
     {
-      date: 'Mar 15, 2026', format: 'In-person', duration: '60 min',
-      topics: ['Estate planning', 'Trust structure', 'CRT vs DAF'],
-      items: [{ text: 'Send CRT vs DAF comparison', done: false }, { text: 'Introduce estate attorney contact', done: false }]
+      date: 'Feb 12, 2026', format: 'In-person', duration: '75 min', location: 'Palo Alto',
+      topics: ['NVDA concentration', 'Exchange fund', 'CRT vs DAF', 'Private credit', 'Life insurance', 'Estate planning'],
+      items: [
+        { text: 'CRT vs DAF comparison — committed Feb 19', done: false, overdue: '67 days' },
+        { text: 'LPL private credit research — committed Mar 1', done: false, overdue: '57 days' },
+        { text: 'Estate attorney referral — committed Mar 15', done: false, overdue: '43 days' }
+      ],
+      warning: '⚠ Spouse (David Chen) was NOT present at this meeting'
     },
     {
-      date: 'Feb 28, 2026', format: 'Video call', duration: '45 min',
-      topics: ['NVDA concentration review', 'Private credit overview'],
-      items: [{ text: 'Research LPL-approved private credit vehicles', done: false }, { text: 'Model portfolio impact of 10% alt allocation', done: false }]
-    },
-    {
-      date: 'Jan 12, 2026', format: 'In-person', duration: '50 min',
-      topics: ['Year-end tax review', 'Q1 strategy'],
-      items: [{ text: 'Send 2025 tax summary', done: true }]
+      date: 'Nov 4, 2025', format: 'Video call', duration: '45 min', location: 'Remote',
+      topics: ['Retirement planning', 'Beneficiary updates'],
+      items: [{ text: 'Beneficiary updates completed', done: true, overdue: '' }],
+      warning: ''
     }
   ];
   const meetingNotes = (advisorNotes || []).filter((n: string) => /meeting|session|discussed|client said|update/i.test(n));
@@ -754,11 +1393,19 @@ const MeetingDocView = ({ advisorNotes }: any) => {
                 <div className={`h-3.5 w-3.5 rounded-full border-2 mt-0.5 shrink-0 flex items-center justify-center ${item.done ? 'bg-green-500 border-green-500' : 'border-amber-400'}`}>
                   {item.done && <span className="text-white text-[8px]">✓</span>}
                 </div>
-                <span className={`text-xs ${item.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.text}</span>
-                {!item.done && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ml-auto shrink-0">Pending</span>}
+                <span className={`text-xs flex-1 ${item.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.text}</span>
+                {!item.done && item.overdue && (
+                  <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded shrink-0">+{item.overdue}</span>
+                )}
+                {item.done && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded shrink-0">Done</span>}
               </div>
             ))}
           </div>
+          {s.warning && (
+            <div className="mt-3 flex items-center gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2">
+              <AlertTriangle size={11} className="shrink-0" />{s.warning}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -852,6 +1499,438 @@ const ComplianceDocView = () => (
   </div>
 );
 
+const SalesforceCRMView = () => {
+  const timeline = [
+    { date: 'Apr 24, 2026', type: 'Email',   note: 'Pre-meeting prep — agenda sent to client' },
+    { date: 'Apr 1, 2026',  type: 'Call',    note: 'Quick check-in re: Q1 portfolio performance' },
+    { date: 'Feb 12, 2026', type: 'Meeting', note: 'Annual review — 75 min, Palo Alto office' },
+    { date: 'Jan 15, 2026', type: 'Email',   note: 'Year-end tax summary delivered' },
+    { date: 'Nov 4, 2025',  type: 'Video',   note: 'Beneficiary update meeting — 45 min' },
+  ];
+  const tagColor: Record<string, string> = {
+    Meeting: 'bg-blue-100 text-blue-700',
+    Email:   'bg-gray-100 text-gray-600',
+    Call:    'bg-green-100 text-green-700',
+    Video:   'bg-purple-100 text-purple-700',
+  };
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#F0F7FF] border border-blue-100 rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-12 w-12 rounded-xl bg-[#1D4ED8] text-white flex items-center justify-center font-bold text-lg shrink-0">MC</div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-gray-800">Margaret Chen</div>
+            <div className="text-[10px] text-gray-500">SF-00483921 · Client since Mar 2019</div>
+          </div>
+          <span className="text-[10px] bg-[#1D4ED8] text-white px-2 py-0.5 rounded font-bold uppercase shrink-0">Platinum</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: 'Service Tier', value: 'Platinum HNW' },
+            { label: 'Relationship Mgr', value: 'J. Whitfield' },
+            { label: 'Preferred Contact', value: 'WhatsApp / Email' },
+            { label: 'Referrals Given', value: '2 colleagues' },
+          ].map(item => (
+            <div key={item.label} className="bg-white rounded-lg p-2.5">
+              <div className="text-[9px] text-gray-400 uppercase tracking-wide">{item.label}</div>
+              <div className="text-xs font-semibold text-gray-800 mt-0.5">{item.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Interaction Timeline</div>
+        <div className="space-y-2">
+          {timeline.map((t, i) => (
+            <div key={i} className="flex items-start gap-3 p-2.5 border border-border rounded-lg">
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded shrink-0 mt-0.5 ${tagColor[t.type]}`}>{t.type}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-700">{t.note}</div>
+                <div className="text-[10px] text-gray-400 mt-0.5">{t.date}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+        <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-2">CRM Advisor Notes</div>
+        <div className="space-y-1.5">
+          {[
+            'Prefers WhatsApp for quick updates, email for formal documents',
+            'Needs thorough explanation before agreeing to alternatives',
+            'Strong emotional tie to NVDA position (held since IPO)',
+            'Spouse (David Chen) not yet involved in financial meetings',
+          ].map((note, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs text-amber-800">
+              <span className="shrink-0 mt-0.5">→</span><span>{note}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WealthcomEstateView = () => {
+  const docs = [
+    { name: 'Last Will & Testament',    date: '2019', status: 'Needs update', urgent: true },
+    { name: 'Financial Power of Attorney', date: '2019', status: 'Current',      urgent: false },
+    { name: 'Healthcare Directive',      date: '2019', status: 'Current',      urgent: false },
+  ];
+  const beneficiaries = [
+    { role: 'Primary',    name: 'David Chen (Spouse)',  pct: '100%' },
+    { role: 'Contingent', name: 'Alex Chen (Child)',    pct: '50%' },
+    { role: 'Contingent', name: 'Jamie Chen (Child)',   pct: '50%' },
+  ];
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { label: 'Financial Assets', value: '$4.2M',    sub: 'Liquid + invested' },
+          { label: 'Primary Residence', value: '~$3.4M', sub: 'Est. current value' },
+          { label: 'Total Estate',     value: '~$7.6M',  sub: 'Est. gross estate' },
+          { label: 'Fed. Exemption',   value: '$13.61M', sub: '2026 — sunset risk' },
+        ].map(s => (
+          <div key={s.label} className="bg-[#F8FAFC] border border-border rounded-lg p-3">
+            <div className="text-[9px] text-gray-400 uppercase tracking-wide">{s.label}</div>
+            <div className="text-sm font-bold text-gray-800 mt-0.5">{s.value}</div>
+            <div className="text-[10px] text-gray-400">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+          <div className="text-xs font-bold text-amber-800">No Trust Structure in Place</div>
+        </div>
+        <p className="text-xs text-amber-700 mb-2">Client has no revocable or irrevocable trust. Structures under advisor review:</p>
+        <div className="flex gap-2 flex-wrap">
+          {['SLAT', 'GRAT', 'IDGT', 'CRT'].map(t => (
+            <span key={t} className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">{t} — Under Review</span>
+          ))}
+        </div>
+      </div>
+      <div className="border border-red-100 bg-red-50 rounded-xl p-4">
+        <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest mb-2">Life Insurance — Expiration Alert</div>
+        <div className="text-xs text-red-800 font-semibold">$1,000,000 20-Yr Term · Hartford Life · Expires Q3 2027</div>
+        <div className="text-[10px] text-red-600 mt-1">⚠ Review needed — client may be uninsurable at current rates after expiry</div>
+      </div>
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Documents on File</div>
+        <div className="space-y-2">
+          {docs.map(doc => (
+            <div key={doc.name} className="flex items-center justify-between p-2.5 border border-border rounded-lg">
+              <div>
+                <div className="text-xs font-semibold text-gray-800">{doc.name}</div>
+                <div className="text-[10px] text-gray-400">Signed {doc.date}</div>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${doc.urgent ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                {doc.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Beneficiaries (Updated Dec 2025)</div>
+        <div className="space-y-1.5">
+          {beneficiaries.map(b => (
+            <div key={b.name} className="flex items-center justify-between p-2.5 bg-[#F8FAFC] border border-border rounded-lg">
+              <div>
+                <div className="text-xs font-semibold text-gray-800">{b.name}</div>
+                <div className="text-[10px] text-gray-400">{b.role}</div>
+              </div>
+              <span className="text-xs font-bold text-gray-600">{b.pct}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FactSetMarketDataView = () => (
+  <div className="space-y-5">
+    <div className="bg-[#F0FFF4] border border-green-100 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="font-bold text-xl text-gray-800">NVDA <span className="text-sm font-normal text-gray-500">NVIDIA Corp</span></div>
+          <div className="text-[10px] text-gray-400">NASDAQ · FactSet Live · {NOW_ET}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-gray-800">$142.30</div>
+          <div className="text-xs text-green-600 font-medium">+$2.14 (+1.52%) today</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: '52-Wk Low',  value: '$85.20' },
+          { label: '52-Wk High', value: '$162.40' },
+          { label: 'P/E (Fwd)',  value: '42.3×' },
+          { label: 'Mkt Cap',    value: '$348B' },
+          { label: 'Beta',       value: '1.89' },
+          { label: 'Consensus',  value: 'Hold' },
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-lg p-2 text-center">
+            <div className="text-[9px] text-gray-400">{s.label}</div>
+            <div className="text-xs font-bold text-gray-800">{s.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div>
+      <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Client Position — Margaret Chen</div>
+      <div className="border border-border rounded-xl overflow-hidden">
+        <table className="w-full text-xs">
+          <tbody className="divide-y divide-gray-50">
+            {[
+              { label: 'Shares Held',      value: '11,800' },
+              { label: 'Current Price',    value: '$142.30' },
+              { label: 'Market Value',     value: '$1,679,140' },
+              { label: 'Avg Cost Basis',   value: '~$40.68 / share' },
+              { label: 'Total Cost Basis', value: '~$480,000' },
+              { label: 'Unrealized Gain',  value: '~$1,199,140 (+250%)' },
+            ].map(row => (
+              <tr key={row.label} className="hover:bg-gray-50">
+                <td className="p-2.5 text-gray-500">{row.label}</td>
+                <td className="p-2.5 text-right font-semibold text-gray-800">{row.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 bg-red-50 border border-red-100 rounded-lg p-2.5">
+        <div className="text-[10px] font-bold text-red-700 mb-0.5">Estimated Tax at Full Sale (~54% blended)</div>
+        <div className="text-sm font-bold text-red-800">~$647,535 total tax impact</div>
+        <div className="text-[10px] text-red-600 mt-0.5">Fed 20% LT cap gains + CA 13.3% + NIIT 3.8% + surcharge</div>
+      </div>
+    </div>
+    <div>
+      <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Analyst Consensus (30 analysts)</div>
+      <div className="flex gap-3">
+        {[{ label: 'Buy', count: 8, color: '#22C55E' }, { label: 'Hold', count: 18, color: '#F59E0B' }, { label: 'Sell', count: 4, color: '#EF4444' }].map(a => (
+          <div key={a.label} className="flex-1 bg-[#F8FAFC] border border-border rounded-lg p-3 text-center">
+            <div className="h-1.5 rounded-full mb-2 mx-auto" style={{ width: `${(a.count / 30) * 100}%`, backgroundColor: a.color }} />
+            <div className="text-lg font-bold text-gray-800">{a.count}</div>
+            <div className="text-[10px] text-gray-400">{a.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div className="bg-[#EEF2FF] border border-[#003087]/10 rounded-lg p-3">
+      <div className="text-[10px] font-bold text-[#003087] uppercase tracking-widest mb-1.5">Key Driver — AI Datacenter</div>
+      <div className="text-xs text-[#003087]">AI datacenter revenue +147% YoY in Q4 2025. Q4 earnings beat estimates by +18%. Blackwell GPU backlog extends through Q3 2026.</div>
+    </div>
+  </div>
+);
+
+const JumpMeetingNotesView = () => {
+  const moments = [
+    { time: '08:14', topic: 'NVDA Position',   quote: '"I\'ve held this since the IPO. It\'s not just money — it\'s part of who I am."' },
+    { time: '18:30', topic: 'Exchange Fund',   quote: 'Advisor introduced exchange fund. Client: "That\'s interesting. Can we model it out?"' },
+    { time: '32:45', topic: 'CRT vs DAF',      quote: '"What\'s the real difference in terms of control? I\'d like a side-by-side."' },
+    { time: '45:10', topic: 'Private Credit',  quote: '"If I can get 5–7% without touching my NVDA, I\'m open to it."' },
+    { time: '58:20', topic: 'Life Insurance',  quote: '"Oh, I forgot that was expiring. Let\'s add that to the list."' },
+    { time: '67:40', topic: 'Spouse',          quote: '"David should probably be at the next one."' },
+  ];
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#FFF7ED] border border-orange-100 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Mic size={14} className="text-orange-600 shrink-0" />
+          <div className="font-bold text-sm text-gray-800">AI Meeting Summary</div>
+          <span className="ml-auto text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold">Jump AI</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {[
+            { label: 'Date',     value: 'Feb 12, 2026' },
+            { label: 'Duration', value: '75 min' },
+            { label: 'Location', value: 'Palo Alto' },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-lg p-2 text-center">
+              <div className="text-[9px] text-gray-400">{s.label}</div>
+              <div className="text-xs font-bold text-gray-800">{s.value}</div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-gray-500">AI Sentiment Score</span>
+          <div className="flex items-center gap-2">
+            <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 rounded-full" style={{ width: '82%' }} />
+            </div>
+            <span className="text-xs font-bold text-green-600">8.2 / 10</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Key Moments (AI Transcript)</div>
+        <div className="space-y-2.5">
+          {moments.map((m, i) => (
+            <div key={i} className="border border-border rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[9px] font-bold text-gray-400 font-mono">{m.time}</span>
+                <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">{m.topic}</span>
+              </div>
+              <p className="text-xs text-gray-700 italic leading-relaxed">{m.quote}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">AI-Detected Topics</div>
+        <div className="flex flex-wrap gap-1.5">
+          {['Concentrated equity', 'NVDA emotional attachment', 'Exchange fund', 'CRT / DAF', 'Private credit', 'Life insurance', 'Estate planning', 'Spouse involvement'].map(t => (
+            <span key={t} className="text-[10px] bg-[#F8FAFC] border border-border text-gray-600 px-2 py-0.5 rounded">{t}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const NvdaDrilldownPanel = ({ onClose }: { onClose: () => void }) => {
+  const SHARES = 11800;
+  const PRICE  = 142.30;
+  const VALUE  = SHARES * PRICE;          // 1,679,140
+  const BASIS  = 480000;
+  const GAIN   = VALUE - BASIS;           // 1,199,140
+  const GAIN_PCT = ((GAIN / BASIS) * 100).toFixed(0);
+
+  const taxRows = [
+    { label: 'Federal LT cap gains', rate: '20%',   amt: Math.round(GAIN * 0.200) },
+    { label: 'California income tax', rate: '13.3%', amt: Math.round(GAIN * 0.133) },
+    { label: 'Federal NIIT',          rate: '3.8%',  amt: Math.round(GAIN * 0.038) },
+    { label: 'Additional surcharges', rate: '~17%',  amt: Math.round(GAIN * 0.169) },
+  ];
+  const totalTax = taxRows.reduce((s, r) => s + r.amt, 0);
+
+  const strategies = [
+    { icon: '↔', label: 'Exchange Fund',           sub: '7-yr lock-up · no immediate tax event' },
+    { icon: '↓', label: 'Phased Sale ($200K / yr)', sub: 'Stays within 20% federal bracket' },
+    { icon: '✂', label: 'Harvest FI Losses',        sub: '~$45K tax savings this year' },
+    { icon: '⚙', label: 'Protective Collar',        sub: 'Limit downside · defer sale decision' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
+      <div
+        className="mt-[64px] mr-0 w-[440px] bg-white border-l border-border shadow-xl h-[calc(100vh-64px)] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-start justify-between shrink-0">
+          <div>
+            <div className="font-bold text-sm text-gray-800">NVDA — Position Detail</div>
+            <div className="text-[10px] text-green-600 mt-0.5 flex items-center gap-1">
+              <CheckCircle2 size={10} />
+              FactSet Live · {NOW_ET}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 mt-0.5"><X size={16} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* Position summary */}
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Position Summary</div>
+            <div className="border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-xs">
+                <tbody className="divide-y divide-gray-50">
+                  {[
+                    { label: 'Shares Held',      value: SHARES.toLocaleString(),                                  hi: false },
+                    { label: 'Current Price',    value: `$${PRICE.toFixed(2)}`,                                   hi: false },
+                    { label: 'Market Value',     value: `$${VALUE.toLocaleString()}`,                             hi: false },
+                    { label: 'Cost Basis',       value: `~$${(BASIS/1000).toFixed(0)}K  (~$${(BASIS/SHARES).toFixed(2)}/share)`, hi: false },
+                    { label: 'Unrealized Gain',  value: `~$${(GAIN/1000).toFixed(0)}K (+${GAIN_PCT}%)`,          hi: true  },
+                    { label: 'Portfolio Weight', value: '40% of $4.2M AUM',                                       hi: true  },
+                  ].map(row => (
+                    <tr key={row.label} className="hover:bg-gray-50">
+                      <td className="p-2.5 text-gray-500">{row.label}</td>
+                      <td className={`p-2.5 text-right font-semibold ${row.hi ? 'text-[#003087]' : 'text-gray-800'}`}>{row.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+                <span>Portfolio concentration</span><span className="text-red-600 font-semibold">40% NVDA</span>
+              </div>
+              <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden flex">
+                <div className="h-full bg-red-500 rounded-l-full" style={{ width: '40%' }} />
+                <div className="h-full bg-[#003087]/20" style={{ width: '60%' }} />
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <AlertTriangle size={10} className="text-red-500 shrink-0" />
+                <span className="text-[10px] text-red-600">Exceeds 20% concentration threshold by 20 percentage points</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tax impact */}
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Estimated Tax at Full Sale</div>
+            <div className="border border-red-100 bg-red-50 rounded-xl p-4">
+              <div className="text-2xl font-bold text-red-700 mb-0.5">${(totalTax / 1000).toFixed(0)}K</div>
+              <div className="text-[10px] text-red-500 mb-3">estimated total tax liability at full liquidation</div>
+              <div className="space-y-1.5">
+                {taxRows.map(t => (
+                  <div key={t.label} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-700">{t.label} <span className="text-gray-400">({t.rate})</span></span>
+                    <span className="font-semibold text-red-700">${t.amt.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="pt-1.5 border-t border-red-200 flex items-center justify-between text-xs font-bold">
+                  <span className="text-gray-800">Total (~54% blended)</span>
+                  <span className="text-red-700">${totalTax.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Diversification strategies */}
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Diversification Strategies</div>
+            <div className="space-y-2">
+              {strategies.map((s, i) => (
+                <div key={i} className="flex items-center gap-3 p-2.5 border border-border rounded-lg bg-[#F8FAFC]">
+                  <div className="h-8 w-8 rounded-lg bg-[#EEF2FF] text-[#003087] flex items-center justify-center font-bold text-sm shrink-0">{s.icon}</div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-800">{s.label}</div>
+                    <div className="text-[10px] text-gray-400">{s.sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Compliance triggers */}
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Compliance Triggers</div>
+            <div className="space-y-1.5">
+              {[
+                'NVDA >20% — annual documented acknowledgment required',
+                'CA CCR §260.218 — suitability documentation needed',
+                'FINRA Rule 2111 — concentrated position disclosure',
+              ].map((c, i) => (
+                <div key={i} className="flex items-center gap-2 p-2 border border-amber-100 bg-amber-50 rounded-lg">
+                  <AlertTriangle size={11} className="text-amber-500 shrink-0" />
+                  <span className="text-[11px] text-amber-800">{c}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-border bg-[#F8F9FB] shrink-0 text-center text-[10px] text-gray-400">
+          Data sourced from FactSet · ClientWorks · LPL Compliance Engine
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DocumentDetailPanel = ({ type, uploadedDoc, isProcessing, onUpload, onClose, advisorNotes, selectedClient }: any) => {
    const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -863,10 +1942,14 @@ const DocumentDetailPanel = ({ type, uploadedDoc, isProcessing, onUpload, onClos
             </pre>
          );
       }
-      if (type.id === 'portfolio') return <PortfolioDocView client={selectedClient} />;
-      if (type.id === 'meeting') return <MeetingDocView advisorNotes={advisorNotes} />;
-      if (type.id === 'research') return <ResearchDocView />;
+      if (type.id === 'portfolio')  return <PortfolioDocView client={selectedClient} />;
+      if (type.id === 'meeting')    return <MeetingDocView advisorNotes={advisorNotes} />;
+      if (type.id === 'research')   return <ResearchDocView />;
       if (type.id === 'compliance') return <ComplianceDocView />;
+      if (type.id === 'salesforce') return <SalesforceCRMView />;
+      if (type.id === 'wealth')     return <WealthcomEstateView />;
+      if (type.id === 'factset')    return <FactSetMarketDataView />;
+      if (type.id === 'jump')       return <JumpMeetingNotesView />;
       return null;
    };
 
@@ -1053,10 +2136,18 @@ export default function App() {
   const [processingDocs, setProcessingDocs] = useState<Record<string, boolean>>({});
   const [selectedClientId, setSelectedClientId] = useState<string>('margaret');
   const [showAdvisorPanel, setShowAdvisorPanel] = useState(false);
-  const [openDocId, setOpenDocId] = useState<string | null>(null);
+  const [rightPanel, setRightPanel] = useState<{ type: 'doc'; docId: string } | { type: 'nvda' } | null>(null);
   const [clientNotes, setClientNotes] = useState<Record<string, string[]>>({});
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [noteInput, setNoteInput] = useState("");
+  const [complianceAcks, setComplianceAcks] = useState([false, false, false]);
+  const [complianceExported, setComplianceExported] = useState(false);
+  const [complianceTimestamp, setComplianceTimestamp] = useState<string | null>(null);
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideData, setOverrideData] = useState<{ category: string; rationale: string; timestamp: string } | null>(null);
+  const [recommendationAccepted, setRecommendationAccepted] = useState<'accepted' | 'overridden' | null>(null);
+  const [currentView, setCurrentView] = useState<'advisor' | 'supervisor'>('advisor');
+  const [selectedAuditEntry, setSelectedAuditEntry] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1142,6 +2233,23 @@ export default function App() {
      }
   };
 
+  const handleComplianceExport = () => {
+    const d = new Date();
+    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    setComplianceExported(true);
+    setComplianceTimestamp(`${date} ${time} ET`);
+  };
+
+  const handleOverrideSubmit = (data: { category: string; rationale: string }) => {
+    const d = new Date();
+    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    setOverrideData({ ...data, timestamp: `${date} ${time} ET` });
+    setRecommendationAccepted('overridden');
+    setShowOverrideModal(false);
+  };
+
   const handleQuerySubmit = async (query: string) => {
      if (!query.trim() || isThinking) return;
 
@@ -1150,6 +2258,34 @@ export default function App() {
      setMessages(nextMessages);
      setInputText("");
      setIsThinking(true);
+
+     // Hardcoded demo flows — skip AI call
+     if (/prepare meeting brief/i.test(query)) {
+       await new Promise(r => setTimeout(r, 1200));
+       const assistantMsg: ChatMsg = { role: 'assistant', content: '', specialType: 'meeting-brief', timestamp: Date.now() };
+       const finalMessages = [...nextMessages, assistantMsg];
+       setMessages(finalMessages);
+       saveCurrentSession(finalMessages, currentSessionId);
+       setIsThinking(false);
+       if (inputRef.current) inputRef.current.style.height = 'auto';
+       return;
+     }
+
+     if (/harvest losses|rebalance.*harvest|should.*rebalance.*hold|nvda concentration/i.test(query)) {
+       await new Promise(r => setTimeout(r, 1500));
+       setComplianceAcks([false, false, false]);
+       setComplianceExported(false);
+       setComplianceTimestamp(null);
+       setRecommendationAccepted(null);
+       setOverrideData(null);
+       const assistantMsg: ChatMsg = { role: 'assistant', content: '', specialType: 'compliance-gate', timestamp: Date.now() };
+       const finalMessages = [...nextMessages, assistantMsg];
+       setMessages(finalMessages);
+       saveCurrentSession(finalMessages, currentSessionId);
+       setIsThinking(false);
+       if (inputRef.current) inputRef.current.style.height = 'auto';
+       return;
+     }
 
      try {
         const responseData = await askAdvisorIQ(query, uploadedDocs, selectedClient, clientNotes[selectedClientId] || []);
@@ -1191,6 +2327,21 @@ export default function App() {
           <div className="h-4 w-[1px] bg-gray-300"></div>
           <div className="text-[10px] text-gray-500 uppercase tracking-wider">Powered by LPL Research · Anthropic</div>
         </div>
+
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          {(['advisor', 'supervisor'] as const).map(view => (
+            <button
+              key={view}
+              onClick={() => { setCurrentView(view); setSelectedAuditEntry(null); }}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors capitalize ${
+                currentView === view ? 'bg-white text-[#003087] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {view === 'advisor' ? 'Advisor View' : 'Supervisor View'}
+            </button>
+          ))}
+        </div>
+
         <button
           onClick={() => setShowAdvisorPanel(prev => !prev)}
           className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer"
@@ -1209,6 +2360,13 @@ export default function App() {
           selectedClientId={selectedClientId}
           onSelectClient={(id: string) => { setSelectedClientId(id); setMessages([]); setCurrentSessionId(newSessionId()); }}
           onClose={() => setShowAdvisorPanel(false)}
+        />
+      )}
+
+      {showOverrideModal && (
+        <OverrideModal
+          onSubmit={handleOverrideSubmit}
+          onClose={() => setShowOverrideModal(false)}
         />
       )}
 
@@ -1238,20 +2396,37 @@ export default function App() {
         />
       )}
 
-      {openDocId && (() => {
-        const type = CONFIG.DOCUMENT_TYPES.find(t => t.id === openDocId)!;
+      {rightPanel?.type === 'doc' && (() => {
+        const docType = CONFIG.DOCUMENT_TYPES.find(t => t.id === rightPanel.docId)!;
         return (
           <DocumentDetailPanel
-            type={type}
-            uploadedDoc={uploadedDocs[openDocId]}
-            isProcessing={processingDocs[openDocId]}
-            onUpload={(file: File | null) => handleUpload(openDocId, file)}
-            onClose={() => setOpenDocId(null)}
+            type={docType}
+            uploadedDoc={uploadedDocs[rightPanel.docId]}
+            isProcessing={processingDocs[rightPanel.docId]}
+            onUpload={(file: File | null) => handleUpload(rightPanel.docId, file)}
+            onClose={() => setRightPanel(null)}
             advisorNotes={clientNotes[selectedClientId] || []}
             selectedClient={selectedClient}
           />
         );
       })()}
+
+      {rightPanel?.type === 'nvda' && (
+        <NvdaDrilldownPanel onClose={() => setRightPanel(null)} />
+      )}
+
+      {selectedAuditEntry && currentView === 'supervisor' && (
+        <AuditDetailPanel
+          entryId={selectedAuditEntry}
+          rows={AUDIT_ROWS}
+          complianceExported={complianceExported}
+          complianceTimestamp={complianceTimestamp}
+          complianceAcks={complianceAcks}
+          recommendationStatus={recommendationAccepted}
+          overrideData={overrideData}
+          onClose={() => setSelectedAuditEntry(null)}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -1275,7 +2450,7 @@ export default function App() {
                 key={type.id}
                 type={type}
                 uploadedDoc={uploadedDocs[type.id]}
-                onClick={() => setOpenDocId(type.id)}
+                onClick={() => setRightPanel({ type: 'doc', docId: type.id })}
               />
             ))}
           </div>
@@ -1365,19 +2540,63 @@ export default function App() {
 
         {/* Main Chat Area */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#F8F9FB] relative">
+          {currentView === 'supervisor' && (
+            <div className="absolute inset-x-0 top-0 z-10 bg-[#F8F9FB] flex flex-col overflow-hidden" style={{ bottom: '2rem' }}>
+              <SupervisorView
+                rows={AUDIT_ROWS}
+                selectedEntry={selectedAuditEntry}
+                onSelectEntry={setSelectedAuditEntry}
+                complianceExported={complianceExported}
+                complianceTimestamp={complianceTimestamp}
+                complianceAcks={complianceAcks}
+                recommendationStatus={recommendationAccepted}
+                overrideData={overrideData}
+              />
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto p-6 space-y-4 pr-2">
             {messages.length === 0 ? (
                <WelcomeScreen onSuggestionClick={handleQuerySubmit} clientName={selectedClient.name} />
             ) : (
                <div className="max-w-4xl mx-auto space-y-4">
-                  {messages.map((msg, i) => (
-                    <ChatMessage
-                      key={i}
-                      msg={msg}
-                      isLast={i === lastAssistantIdx}
-                      onSuggestionClick={handleQuerySubmit}
-                    />
-                  ))}
+                  {messages.map((msg, i) => {
+                    if (msg.specialType === 'meeting-brief') {
+                      return (
+                        <div key={i} className="mb-4">
+                          <MeetingBriefContent
+                            onNvdaClick={() => setRightPanel({ type: 'nvda' })}
+                            client={selectedClient}
+                          />
+                        </div>
+                      );
+                    }
+                    if (msg.specialType === 'compliance-gate') {
+                      return (
+                        <div key={i} className="mb-4">
+                          <ComplianceGateContent
+                            acks={complianceAcks}
+                            exported={complianceExported}
+                            timestamp={complianceTimestamp}
+                            recommendationStatus={recommendationAccepted}
+                            overrideData={overrideData}
+                            onAck={(idx, val) => setComplianceAcks(prev => { const n = [...prev]; n[idx] = val; return n; })}
+                            onExport={handleComplianceExport}
+                            onAccept={() => setRecommendationAccepted('accepted')}
+                            onShowOverride={() => setShowOverrideModal(true)}
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <ChatMessage
+                        key={i}
+                        msg={msg}
+                        isLast={i === lastAssistantIdx}
+                        onSuggestionClick={handleQuerySubmit}
+                      />
+                    );
+                  })}
 
                   {isThinking && (
                      <div className="flex items-center gap-3 text-gray-400 p-4">
@@ -1388,6 +2607,8 @@ export default function App() {
                </div>
             )}
           </div>
+
+          <MetricsStrip />
 
           {/* Chat Input */}
           <div className="p-6 pt-2 shrink-0 max-w-5xl mx-auto w-full">
