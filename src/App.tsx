@@ -39,7 +39,7 @@ const mockClients = [
     concentration: "NVDA 40%",
     state: "California",
     marginalTaxRate: "~54%",
-    nextMeeting: "Tomorrow, Apr 22, 2026",
+    nextMeeting: "May 6, 2026",
     openItems: [
       "CRT vs DAF comparison not sent",
       "Private credit options not researched",
@@ -584,7 +584,7 @@ const MeetingBriefContent = ({ onNvdaClick, client }: { onNvdaClick: () => void;
         <div className="flex items-start justify-between">
           <div>
             <div className="font-bold text-base">Meeting Brief — {client.name}</div>
-            <div className="text-[11px] text-blue-200 mt-0.5">{TOMORROW_DATE} · 2:00 PM · In-person · Palo Alto Office</div>
+            <div className="text-[11px] text-blue-200 mt-0.5">{client.nextMeeting} · 2:00 PM · In-person · Palo Alto Office</div>
           </div>
           <div className="text-right text-[10px] text-blue-200 shrink-0 ml-4">
             <div>Prepared by AdvisorIQ</div>
