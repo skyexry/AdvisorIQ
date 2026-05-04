@@ -1,5 +1,7 @@
 # LPL Financial AdvisorIQ
 
+🔗 **Live Demo:** [[advisoriq.vercel.app](https://advisoriq.vercel.app)](https://advisoriq-qvdk3snt4-skyexrys-projects.vercel.app/)
+
 **AdvisorIQ** is an internal AI assistant for LPL Financial advisors. It unifies client portfolios, meeting history, LPL research reports, and compliance documents into a single conversational interface — so advisors can prepare for complex client meetings in minutes instead of hours.
 
 ---
